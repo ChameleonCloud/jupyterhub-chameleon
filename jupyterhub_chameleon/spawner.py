@@ -16,29 +16,28 @@ class ChameleonSpawner(DockerSpawner):
         """
     )
 
-    @default('options_form')
-    def _options_form(self):
-        default_env = "YOURNAME=%s\n" % self.user.name
-        return """
-        <label for="args">Extra notebook CLI arguments</label>
-        <input name="args" placeholder="e.g. --debug"></input>
-        """.format(env=default_env)
+    # TODO: can enable picking different images here.
+    #
+    # @default('options_form')
+    # def _options_form(self):
+    #     default_env = "YOURNAME=%s\n" % self.user.name
+    #     return """
+    #     <label for="args">Extra notebook CLI arguments</label>
+    #     <input name="args" placeholder="e.g. --debug"></input>
+    #     """.format(env=default_env)
 
-    @default('options_from_form')
-    def _options_from_form(self, formdata):
-        """Turn html formdata (always lists of strings) into the dict we want."""
-        options = {}
-        # arg_s = formdata.get('args', [''])[0].strip()
-        # if arg_s:
-        #     options['argv'] = shlex.split(arg_s)
-        return options
+    # @default('options_from_form')
+    # def _options_from_form(self, formdata):
+    #     """Turn html formdata (always lists of strings) into the dict we want."""
+    #     options = {}
+    #     arg_s = formdata.get('args', [''])[0].strip()
+    #     if arg_s:
+    #         options['argv'] = shlex.split(arg_s)
+    #     return options
 
     @default('name_template')
     def _name_template(self):
-        if self._is_import_environment():
-            return '{prefix}-{username}-exp-{servername}'
-        else:
-            return '{prefix}-{username}'
+        return '{prefix}-{username}-exp-{servername}'
 
     @default('volumes')
     def _volumes(self):
@@ -52,8 +51,8 @@ class ChameleonSpawner(DockerSpawner):
                 '{prefix}-{username}': self._gen_volume_config(self.work_dir),
             }
 
-    @default('remove_containers')
-    def _remove_containers(self):
+    @default('remove')
+    def _remove(self):
         return True
 
     @default('environment')
@@ -98,31 +97,19 @@ class ChameleonSpawner(DockerSpawner):
     def _network_name(self):
         return os.environ['DOCKER_NETWORK_NAME']
 
+    @default('default_url')
+    def _default_url(self):
+        return '/lab'
+
     def get_env(self):
         env = super().get_env()
-        extra_env = {}
 
-        extra_env['NB_USER'] = self.user.name,
-        extra_env['OS_INTERFACE'] = 'public'
-        extra_env['OS_IDENTITY_API_VERSION'] = '3'
+        extra_env = {}
+        extra_env['NB_USER'] = self.user.name
         extra_env['OS_KEYPAIR_PRIVATE_KEY'] = f'{self.work_dir}/.ssh/id_rsa'
         extra_env['OS_KEYPAIR_PUBLIC_KEY'] = f'{self.work_dir}/.ssh/id_rsa.pub'
-        extra_env['OS_PROJECT_DOMAIN_NAME'] = 'default'
-        # TODO(jason): when we move to federated keystone, there will only
-        # be one region, and the site will be influenced entirely by auth_url
-        extra_env['OS_REGION_NAME'] = 'CHI@UC'
-
-        auth_state = yield self.user.get_auth_state()
-
-        if auth_state:
-            extra_env['OS_AUTH_URL'] = auth_state['auth_url']
-            extra_env['OS_TOKEN'] = auth_state['os_token']
-            extra_env['OS_AUTH_TYPE'] = 'token'
-            project_name = auth_state.get('project_name')
-            if project_name:
-                extra_env['OS_PROJECT_NAME'] = project_name
-
         env.update(extra_env)
+
         return env
 
     def _is_import_environment(self):

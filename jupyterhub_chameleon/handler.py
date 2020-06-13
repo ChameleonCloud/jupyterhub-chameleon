@@ -5,7 +5,9 @@ from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
 from tornado import web
 
+from .authenticator import LOGIN_FLOW_COOKIE_NAME
 from .utils import get_import_params
+
 
 class UserRedirectExperimentHandler(BaseHandler):
     """Redirect spawn requests to user servers.
@@ -51,5 +53,5 @@ class UserRedirectExperimentHandler(BaseHandler):
 
 class NewLoginFlowOptInHandler(BaseHandler):
     def get(self):
-        # Set a cookie and redirect
-        self.redirect('/')
+        self._set_cookie(LOGIN_FLOW_COOKIE_NAME, '2', encrypted=False)
+        self.redirect('/login')

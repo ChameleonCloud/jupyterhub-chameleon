@@ -13,6 +13,9 @@ from traitlets import default, Unicode
 
 from jupyterhub.auth import Authenticator
 
+LOGIN_FLOW_COOKIE_NAME = 'login_flow'
+
+
 class ChameleonAuthenticator(Authenticator):
     auth_url = Unicode(
         config=True,
@@ -57,20 +60,18 @@ class ChameleonAuthenticator(Authenticator):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.keystone_auth = KeystoneAuthenticator(**kwargs)
+        self.keystone_auth.auth_url = self.auth_url
         self.oidc_auth = ChameleonKeycloakAuthenticator(**kwargs)
+        self.oidc_auth.keystone_auth_url = self.auth_url
 
     async def authenticate(self, handler, data):
         if self._wants_oidc_login(handler.request):
-            return self.oidc_auth.authenticate(handler, data)
+            return await self.oidc_auth.authenticate(handler, data)
         else:
-            return self.keystone_auth.authenticate(handler, data)
-
-    async def pre_spawn_start(self, user, spawner):
-        # Can drop keystone tokens into the environment here?
-        pass
+            return await self.keystone_auth.authenticate(handler, data)
 
     def _wants_oidc_login(self, request):
-        return False
+        return request.cookies.get(LOGIN_FLOW_COOKIE_NAME) == '2'
 
 
 class ChameleonKeycloakAuthenticator(OAuthenticator):
@@ -93,6 +94,43 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         config=True,
         help="""
         Keycloak realm name
+        """
+    )
+
+    keystone_auth_url = Unicode(
+        config=True,
+        help="""
+        Something
+        """
+    )
+
+    keystone_interface = Unicode(
+        'public',
+        config=True,
+        help="""
+        Something
+        """
+    )
+
+    keystone_identity_api_version = Unicode(
+        '3',
+        config=True,
+        help="""
+        Something
+        """
+    )
+
+    keystone_identity_provider = Unicode(
+        config=True,
+        help="""
+        Something
+        """
+    )
+
+    keystone_protocol = Unicode(
+        config=True,
+        help="""
+        Something
         """
     )
 
@@ -145,37 +183,54 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         user_resp = await http_client.fetch(req)
         user_json = json.loads(user_resp.body.decode('utf8', 'replace'))
         username, _ = user_json.get('preferred_username').split('@', 1)
+        # Can also get groups here (check for Chameleon group)
 
-        # Each token should have these attributes. Resource server is optional,
-        # and likely won't be present.
-        token_attrs = ['expires_in', 'resource_server', 'scope', 'token_type',
-                       'refresh_token', 'access_token']
-        # The Auth Token is a bit special, it comes back at the top level with the
-        # id token. The id token has some useful information in it, but nothing that
-        # can't be retrieved with an Auth token. Repackage the Auth token into a
-        # dict that looks like the other tokens
         auth_token_dict = {
             attr_name: token_json.get(attr_name)
-            for attr_name in token_attrs
+            for attr_name in [
+                'expires_in', 'scope', 'token_type', 'refresh_token',
+                'access_token'
+            ]
         }
+
+        if self._has_keystone_config():
+            openstack_rc = {
+                'OS_AUTH_URL': self.keystone_auth_url,
+                'OS_INTERFACE': self.keystone_interface,
+                'OS_IDENTITY_API_VERSION': self.keystone_identity_api_version,
+                'OS_ACCESS_TOKEN': auth_state['token']['access_token'],
+                'OS_IDENTITY_PROVIDER': self.keystone_identity_provider,
+                'OS_PROTOCOL': self.keystone_protocol,
+                'OS_AUTH_TYPE': 'v3oidcaccesstoken',
+            }
+
         return {
             'name': username,
+            'admin': False,
             'auth_state': {
                 'client_id': self.client_id,
                 'token': auth_token_dict,
+                'openstack_rc': openstack_rc,
             },
         }
 
-        def get_default_headers(self):
-            return {
-                'Accept': 'application/json',
-                'User-Agent': 'JupyterHub',
-            }
+    def _has_keystone_config(self):
+        return (
+            self.keystone_auth_url and
+            self.keystone_identity_provider and
+            self.keystone_protocol
+        )
 
-        def get_client_credential_headers(self):
-            headers = self.get_default_headers()
-            b64key = base64.b64encode(
-                bytes('{}:{}'.format(
-                    self.client_id, self.client_secret), 'utf8'))
-            headers['Authorization'] = 'Basic {}'.format(b64key.decode('utf8'))
-            return headers
+    def get_default_headers(self):
+        return {
+            'Accept': 'application/json',
+            'User-Agent': 'JupyterHub',
+        }
+
+    def get_client_credential_headers(self):
+        headers = self.get_default_headers()
+        b64key = base64.b64encode(
+            bytes('{}:{}'.format(
+                self.client_id, self.client_secret), 'utf8'))
+        headers['Authorization'] = 'Basic {}'.format(b64key.decode('utf8'))
+        return headers
