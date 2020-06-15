@@ -5,7 +5,6 @@ from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
 from tornado import web
 
-from .authenticator import LOGIN_FLOW_COOKIE_NAME
 from .utils import get_import_params
 
 
@@ -50,8 +49,4 @@ class UserRedirectExperimentHandler(BaseHandler):
 
         self.redirect(spawn_url)
 
-
-class NewLoginFlowOptInHandler(BaseHandler):
-    def get(self):
-        self._set_cookie(LOGIN_FLOW_COOKIE_NAME, '2', encrypted=False)
-        self.redirect('/login')
+# TODO: install handler that can return auth_state (open_rc)
