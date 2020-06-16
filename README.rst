@@ -6,15 +6,15 @@ jupyterhub-chameleon
 
 This module contains several extensions and congurations relevant for Chameleon:
 
-  * A custom authenticator that handles migrating users from the legacy
-    Keystone-based authenticator to a new OpenID-based authenticator (using
-    Chameleon's Keycloak deployment)
-  * A Docker-based spawner preconfigured with volumes backed by RBD and special
-    handling of user scratch directories vs. experimental (ephemeral) mounts
-  * An experiment import handler, which is used to craft a special spawn request
-    that pulls code either from GitHub or a Zenodo deposition to create an
-    ephemeral experimental environment
-  * A managed service that can refresh a user's access tokens
+* A custom authenticator that handles migrating users from the legacy
+  Keystone-based authenticator to a new OpenID-based authenticator (using
+  Chameleon's Keycloak deployment)
+* A Docker-based spawner preconfigured with volumes backed by RBD and special
+  handling of user scratch directories vs. experimental (ephemeral) mounts
+* An experiment import handler, which is used to craft a special spawn request
+  that pulls code either from GitHub or a Zenodo deposition to create an
+  ephemeral experimental environment
+* A managed service that can refresh a user's access tokens
 
 Installation
 ============
