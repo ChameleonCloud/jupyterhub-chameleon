@@ -129,7 +129,7 @@ def main():
 
     url = urlparse(os.environ['JUPYTERHUB_SERVICE_URL'])
     http_server = HTTPServer(app)
-    http_server.listen(url.port)
+    http_server.listen(url.port, address=url.hostname)
 
     IOLoop.current().start()
 
