@@ -59,7 +59,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     )
 
     keystone_auth_url = Unicode(
-        os.getenv('OS_AUTH_URL'),
+        os.getenv('OS_AUTH_URL', ''),
         config=True,
         help="""
         Keystone authentication URL
@@ -102,7 +102,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     )
 
     keystone_default_region_name = Unicode(
-        os.getenv('OS_REGION_NAME'),
+        os.getenv('OS_REGION_NAME', ''),
         config=True,
         help="""
         A default region to use when choosing Keystone endpoints
@@ -157,8 +157,8 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         username = user_json.get('preferred_username').split('@', 1)[0]
         # Can also get groups here (check for Chameleon group)
 
-        access_token = auth_token_dict['access_token']
-        refresh_token = auth_token_dict['refresh_token']
+        access_token = token_json['access_token']
+        refresh_token = token_json['refresh_token']
 
         if self._has_keystone_config():
             openstack_rc = {
