@@ -19,7 +19,7 @@ setup(
     ],
     entry_points={
         'jupyterhub.authenticators': [
-            'chameleon = jupyterhub_chameleon.authenticator:ChameleonAuthenticator',
+            'chameleon = jupyterhub_chameleon.authenticator.branching:ChameleonAuthenticator',
         ],
         'jupyterhub.spawners': [
             'chameleon = jupyterhub_chameleon.spawner:ChameleonSpawner',

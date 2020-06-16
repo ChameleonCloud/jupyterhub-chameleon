@@ -116,7 +116,14 @@ class ChameleonSpawner(DockerSpawner):
         return self._get_import_info() is not None
 
     def _get_import_info(self):
-        return get_import_params(self.handler.request.query)
+        if self.handler:
+            return get_import_params(self.handler.request.query)
+        else:
+            self.log.warning((
+                'Attempted to resolve import information from spawner before '
+                'a handler existed. Defaulting to assuming no import flow '
+                'is needed.'))
+            return None
 
     def _gen_volume_config(self, target):
         return dict(

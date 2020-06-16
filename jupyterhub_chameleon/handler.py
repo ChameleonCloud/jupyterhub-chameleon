@@ -48,5 +48,3 @@ class UserRedirectExperimentHandler(BaseHandler):
             spawn_url = base_spawn_url
 
         self.redirect(spawn_url)
-
-# TODO: install handler that can return auth_state (open_rc)

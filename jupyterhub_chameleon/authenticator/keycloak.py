@@ -3,114 +3,20 @@ import json
 import os
 from urllib.parse import urlencode
 
-from jupyterhub.auth import LoginHandler
-from jupyterhub.handlers import BaseHandler
-from jupyterhub.utils import url_path_join
-from keystoneauthenticator import KeystoneAuthenticator
 from oauthenticator.oauth2 import OAuthenticator, OAuthLoginHandler, OAuthCallbackHandler
-from oauthenticator.generic import GenericOAuthenticator
-from tornado import gen
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
-from tornado.web import HTTPError
-from traitlets import default, Bool, Int, Unicode
-
-from jupyterhub.auth import Authenticator
-
-LOGIN_FLOW_COOKIE_NAME = 'login_flow'
-
-
-class ChameleonAuthenticator(Authenticator):
-    auth_url = Unicode(
-        config=True,
-        help="""
-        Keystone server auth URL
-        """
-    )
-
-    @default('auth_url')
-    def _auth_url(self):
-        return os.environ['OS_AUTH_URL']
-
-    auto_login = Bool(True)
-
-    # The user's Keystone token is stored in auth_state and the
-    # authenticator is not very useful without it.
-    enable_auth_state = Bool(True)
-
-    # Check state of authentication token before allowing a new spawn.
-    # The Keystone authenticator will fail if the user's unscoped token has
-    # expired, forcing them to log in, which is the right thing.
-    refresh_pre_spawn = Bool(True)
-
-    # Automatically check the auth state this often.
-
-    # This isn't very useful for us, since we can't really do anything if
-    # the token has expired realistically (can we?), so we increase the poll
-    # interval just to reduce things the authenticator has to do.
-
-    # TODO(jason): we could potentially use the auth refresh mechanism to
-    # generate a refresh auth token from Keycloak (and then exchange it for
-    # a new Keystone token.)
-    auth_refresh_age = Int(60 * 60)
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.keystone_auth = KeystoneAuthenticator(**kwargs)
-        self.keystone_auth.auth_url = self.auth_url
-        self.oidc_auth = ChameleonKeycloakAuthenticator(**kwargs)
-        self.oidc_auth.keystone_auth_url = self.auth_url
-
-        proxy_attrs = ['enable_auth_state']
-        for attr in proxy_attrs:
-            value = getattr(self, attr)
-            setattr(self.keystone_auth, attr, value)
-            setattr(self.oidc_auth, attr, value)
-
-    async def authenticate(self, handler, data):
-        if wants_oidc_login(handler):
-            return await self.oidc_auth.authenticate(handler, data)
-        else:
-            return await self.keystone_auth.authenticate(handler, data)
-
-    def get_callback_url(self, handler=None):
-        """Shim the get_callback_url function required for OAuthenticator.
-
-        This is necessary because somewhere in the request handler flow, this
-        function is called via a reference to the parent authenticator instance.
-        """
-        return self.oidc_auth.get_callback_url(handler)
-
-    def login_url(self, base_url):
-        return url_path_join(base_url, 'login-start')
-
-    def get_handlers(self, app):
-        handlers = [
-            ('/login-start', DetectLoginMethodHandler),
-            ('/new-login-flow', NewLoginFlowOptInHandler),
-            ('/login-form', LoginFormHandler),
-        ]
-        handlers.extend(self.keystone_auth.get_handlers(app))
-        handlers.extend(self.oidc_auth.get_handlers(app))
-        return handlers
-
-    @gen.coroutine
-    def pre_spawn_start(self, user, spawner):
-        """Fill in OpenRC environment variables from user auth state.
-        """
-        auth_state = yield user.get_auth_state()
-        if not auth_state:
-            # auth_state not enabled
-            self.log.warning('auth_state is not enabled! Cannot set OpenStack RC parameters')
-            return
-        self.log.info('auth_state = %s' % auth_state)
-        for rc_key, rc_value in auth_state.get('openstack_rc', {}).items():
-            spawner.environment[rc_key] = rc_value
+from traitlets import default, Unicode
 
 
 class ForceOAuthUsageMixin:
     @property
     def authenticator(self):
         """When inside an OAuth login handler, force using the OAuthenticator.
+
+        This is necessary because the handlers reference the Authenticator
+        instance configured to JupyterHub, which will be the wrapper
+        authencitator, which does not have much of the API required by the
+        OAuthenticator handlers.
         """
         return self.settings.get('authenticator').oidc_auth
 
@@ -140,7 +46,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         os.getenv('KEYCLOAK_SERVER_URL', 'https://auth.chameleoncloud.org'),
         config=True,
         help="""
-        Keycloak server URL
+        Keycloak server absolue URL, protocol included
         """
     )
 
@@ -153,48 +59,53 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     )
 
     keystone_auth_url = Unicode(
+        os.getenv('OS_AUTH_URL'),
         config=True,
         help="""
-        Something
+        Keystone authentication URL
         """
     )
 
     keystone_interface = Unicode(
-        'public',
+        os.getenv('OS_INTERFACE', 'public'),
         config=True,
         help="""
-        Something
+        Keystone endpoint interface
         """
     )
 
     keystone_identity_api_version = Unicode(
-        '3',
+        os.getenv('OS_IDENTITY_API_VERSION', '3'),
         config=True,
         help="""
-        Something
+        Keystone API version (default=v3)
         """
     )
 
     keystone_identity_provider = Unicode(
-        'chameleon',
+        os.getenv('OS_IDENTITY_PROVIDER', 'chameleon'),
         config=True,
         help="""
-        Something
+        Keystone identity provider name. This identity provider must have its
+        client ID included as an additional audience in tokens generated for
+        the client ID specified in `keycloak_client_id`. This allows the token
+        generated for one client to be re-used to authenticate against another.
         """
     )
 
     keystone_protocol = Unicode(
-        'openid',
+        os.getenv('OS_PROTOCOL', 'openid'),
         config=True,
         help="""
-        Something
+        Keystone identity protocol name
         """
     )
 
     keystone_default_region_name = Unicode(
+        os.getenv('OS_REGION_NAME'),
         config=True,
         help="""
-        Something
+        A default region to use when choosing Keystone endpoints
         """
     )
 
@@ -295,35 +206,3 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
                 self.client_id, self.client_secret), 'utf8'))
         headers['Authorization'] = 'Basic {}'.format(b64key.decode('utf8'))
         return headers
-
-
-def wants_oidc_login(handler):
-    return handler.get_cookie(LOGIN_FLOW_COOKIE_NAME) == '2'
-
-
-class DetectLoginMethodHandler(BaseHandler):
-    def get(self):
-        if wants_oidc_login(self):
-            url = url_path_join(self.hub.base_url, 'oauth_login')
-        else:
-            url = url_path_join(self.hub.base_url, 'login-form')
-        self.redirect(url)
-
-
-class NewLoginFlowOptInHandler(BaseHandler):
-    def get(self):
-        self._set_cookie(LOGIN_FLOW_COOKIE_NAME, '2', encrypted=False,
-                         expires_days=30)
-        self.redirect(url_path_join(self.hub.base_url, 'login-start'))
-
-
-class LoginFormHandler(LoginHandler):
-    async def get(self):
-        """Patched from the default LoginHandler to remove auto_login logic.
-
-        We have our own auto-login handler implemented and the default
-        auto_login logic bundled in the default handler, which renders a login
-        page, cause an redirect loop.
-        """
-        username = self.get_argument('username', default='')
-        self.finish(self._render(username=username))
