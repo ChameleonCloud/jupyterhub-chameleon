@@ -191,6 +191,13 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         """
     )
 
+    keystone_default_region_name = Unicode(
+        config=True,
+        help="""
+        Something
+        """
+    )
+
     def _keycloak_openid_endpoint(self, name):
         return (
             f'{self.keycloak_url}/auth/realms/{self.keycloak_realm_name}'
@@ -216,10 +223,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         ]
 
     async def authenticate(self, handler, data=None):
-        """
-        Authenticate with globus.org. Usernames (and therefore Jupyterhub
-        accounts) will correspond to a Globus User ID, so foouser@globusid.org
-        will have the 'foouser' account in Jupyterhub.
+        """Authenticate with Keycloak.
         """
         http_client = AsyncHTTPClient()
         params = dict(
@@ -242,24 +246,22 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         username = user_json.get('preferred_username').split('@', 1)[0]
         # Can also get groups here (check for Chameleon group)
 
-        auth_token_dict = {
-            attr_name: token_json.get(attr_name)
-            for attr_name in [
-                'expires_in', 'scope', 'token_type', 'refresh_token',
-                'access_token'
-            ]
-        }
+        access_token = auth_token_dict['access_token']
+        refresh_token = auth_token_dict['refresh_token']
 
         if self._has_keystone_config():
             openstack_rc = {
                 'OS_AUTH_URL': self.keystone_auth_url,
                 'OS_INTERFACE': self.keystone_interface,
                 'OS_IDENTITY_API_VERSION': self.keystone_identity_api_version,
-                'OS_ACCESS_TOKEN': auth_token_dict['access_token'],
+                'OS_ACCESS_TOKEN': access_token,
                 'OS_IDENTITY_PROVIDER': self.keystone_identity_provider,
                 'OS_PROTOCOL': self.keystone_protocol,
                 'OS_AUTH_TYPE': 'v3oidcaccesstoken',
             }
+            if self.keystone_default_region_name:
+                openstack_rc['OS_REGION_NAME'] = (
+                    self.keystone_default_region_name)
         else:
             openstack_rc = None
 
@@ -267,8 +269,8 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             'name': username,
             'admin': False,
             'auth_state': {
-                'client_id': self.client_id,
-                'token': auth_token_dict,
+                'access_token': access_token,
+                'refresh_token': refresh_token,
                 'openstack_rc': openstack_rc,
             },
         }
