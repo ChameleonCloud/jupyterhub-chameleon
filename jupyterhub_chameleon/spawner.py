@@ -37,7 +37,10 @@ class ChameleonSpawner(DockerSpawner):
 
     @default('name_template')
     def _name_template(self):
-        return '{prefix}-{username}-exp-{servername}'
+        if self.name:
+            return '{prefix}-{username}-exp-{servername}'
+        else:
+            return '{prefix}-{username}'
 
     @default('volumes')
     def _volumes(self):
