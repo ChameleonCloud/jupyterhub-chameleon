@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='jupyterhub-chameleon',
-    version='0.0.1',
+    version='0.0.2',
     description='Chameleon extensions for JupyterHub',
     url='https://github.com/chameleoncloud/jupyterhub-chameleon',
     author='Jason Anderson',
