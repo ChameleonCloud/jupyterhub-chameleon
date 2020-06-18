@@ -53,11 +53,19 @@ class ChameleonAuthenticator(Authenticator):
     Keycloak server. If they do not opt-in, they will log in via the legacy
     Keystone-based flow.
     """
-    auth_url = Unicode(
-        os.environ.get('OS_AUTH_URL'),
+    keystone_auth_url = Unicode(
+        os.environ.get('OS_AUTH_URL', ''),
         config=True,
         help="""
         Keystone server auth URL
+        """
+    )
+
+    keystone_region_name = Unicode(
+        os.environ.get('OS_REGION_NAME', ''),
+        config=True,
+        help="""
+        Keystone default region name
         """
     )
 
@@ -86,11 +94,12 @@ class ChameleonAuthenticator(Authenticator):
         super().__init__(**kwargs)
 
         self.keystone_auth = KeystoneAuthenticator(**kwargs)
-        self.keystone_auth.auth_url = self.auth_url
+        self.keystone_auth.auth_url = self.keystone_auth_url
+        self.keystone_auth.region_name = self.keystone_region_name
         self.keystone_auth.enable_auth_state = self.enable_auth_state
 
         self.oidc_auth = ChameleonKeycloakAuthenticator(**kwargs)
-        self.oidc_auth.keystone_auth_url = self.auth_url
+        self.oidc_auth.keystone_auth_url = self.keystone_auth_url
         self.oidc_auth.enable_auth_state = self.enable_auth_state
 
     async def authenticate(self, handler, data):
