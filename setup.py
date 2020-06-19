@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 setup(
     name='jupyterhub-chameleon',
@@ -8,7 +8,7 @@ setup(
     author='Jason Anderson',
     author_email='jasonanderson@uchicago.edu',
     license='MIT',
-    packages=['jupyterhub_chameleon'],
+    packages=find_packages(),
     install_requires=[
         'dockerspawner',
         'jupyterhub',
