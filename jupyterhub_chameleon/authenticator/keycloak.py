@@ -110,9 +110,10 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     )
 
     def _keycloak_openid_endpoint(self, name):
-        return (
-            f'{self.keycloak_url}/auth/realms/{self.keycloak_realm_name}'
-            f'/protocol/openid-connect/{name}')
+        realm = self.keycloak_realm_name
+        return os.path.join(
+            self.keycloak_url,
+            f'auth/realms/{realm}/protocol/openid-connect/{name}')
 
     @default('userdata_url')
     def _userdata_url_default(self):

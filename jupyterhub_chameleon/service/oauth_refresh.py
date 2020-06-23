@@ -95,7 +95,9 @@ class TokenHandler(HubAuthenticated, RequestHandler):
         client_secret = os.environ['KEYCLOAK_CLIENT_SECRET']
         server_url = os.environ['KEYCLOAK_SERVER_URL']
         realm_name = os.environ['KEYCLOAK_REALM_NAME']
-        token_url = f'{server_url}/auth/realms/{realm_name}/protocol/openid-connect/token'
+        token_url = os.path.join(
+            server_url,
+            'auth/realms/{realm_name}/protocol/openid-connect/token')
 
         user_model = self.get_current_user()
         user_path = url_path_join('users', user_model['name'])
