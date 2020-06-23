@@ -118,7 +118,7 @@ class TokenHandler(HubAuthenticated, RequestHandler):
                          data=json.dumps({'auth_state': auth_state}))
 
         # send new token to the user
-        tokens = {'OS_ACCESS_TOKEN': auth_state.get('access_token')}
+        tokens = {'access_token': auth_state.get('access_token')}
         self.set_header('content-type', 'application/json')
         self.write(json.dumps(tokens, indent=1, sort_keys=True))
 
