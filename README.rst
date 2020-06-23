@@ -38,3 +38,38 @@ configuration for you.
    jupyterhub_chameleon.install_extension(c)
 
    # Configure JupyterHub further as needed
+
+Configuration options
+---------------------
+
+Environment variables are the easiest way to control the default behavior of
+this module:
+
+:DEBUG: (bool) whether to enable debug logging
+:JUPYTERHUB_PUBLIC_URL: (str) the full (public) base URL of the JupyterHub
+                       server. JupyterHub should really provide this to
+                       managed services, but it doesn't, so we have to. The
+                       issue is that we are behind a reverse proxy, so we need
+                       to inform JupyterHub of this.
+:DOCKER_VOLUME_DRIVER: (str) the name of the Docker volume driver to use when
+                       creating user work directories
+:DOCKER_VOLUME_DRIVER_OPTS: (str) options, comma-separated "key=value" pairs,
+                            passed to the volume create command
+:DOCKER_NOTEBOOK_IMAGE: (str) the name of the Docker image to spawn for users
+:DOCKER_NETWORK_NAME: (str) the Docker network name
+:KEYCLOAK_SERVER_URL: (str) the full base URL of the Keycloak server
+:KEYCLOAK_REALM_NAME: (str) the Keycloak realm name to authenticate against
+:KEYCLOAK_CLIENT_ID: (str) the Keycloak client ID
+:KEYCLOAK_CLIENT_SECRET: (str) the Keycloak client secret
+:OS_AUTH_URL: (str) the full base URL of the Keystone public endpoint
+:OS_REGION_NAME: (str) an optional default Keystone region; if not set, the
+                 first detected region is used when looking up services
+:OS_IDENTITY_PROVIDER: (str) the Keystone identity provider to use when logging
+                       in via federated authentication
+:OS_PROTOCOL: (str) the Keystone federation protocol to use (openid, saml)
+:CHAMELEON_SHARING_PORTAL_UPLOAD_URL: (str) the full URL for the endpoint in
+                                      the Chameleon sharing portal that starts
+                                      the artifact creation flow.
+:CHAMELEON_SHARING_PORTAL_UPDATE_URL: (str) the full URL for the endpoint in
+                                      the Chameleon sharing portal that starts
+                                      the update flow.

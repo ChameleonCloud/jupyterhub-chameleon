@@ -2,7 +2,7 @@ import os
 from urllib.parse import parse_qsl
 
 from dockerspawner import DockerSpawner
-from traitlets import default, Unicode
+from traitlets import default, Bool, Unicode
 from .utils import get_import_params
 
 class ChameleonSpawner(DockerSpawner):
@@ -15,6 +15,12 @@ class ChameleonSpawner(DockerSpawner):
         user.
         """
     )
+
+    # Always remove stopped containers
+    remove = Bool(True)
+
+    # Default to JupyterLab
+    default_url = Unicode('/lab')
 
     # TODO: can enable picking different images here.
     #
@@ -44,19 +50,9 @@ class ChameleonSpawner(DockerSpawner):
 
     @default('volumes')
     def _volumes(self):
-        if self._is_import_environment():
-            return {
-                '{prefix}-{username}-exp-{servername}': (
-                    self._gen_volume_config(self.work_dir)),
-            }
-        else:
-            return {
-                '{prefix}-{username}': self._gen_volume_config(self.work_dir),
-            }
-
-    @default('remove')
-    def _remove(self):
-        return True
+        return {
+            self.name_template: self._gen_volume_config(self.work_dir)
+        }
 
     @default('environment')
     def _environment(self):
@@ -100,33 +96,17 @@ class ChameleonSpawner(DockerSpawner):
     def _network_name(self):
         return os.environ['DOCKER_NETWORK_NAME']
 
-    @default('default_url')
-    def _default_url(self):
-        return '/lab'
-
     def get_env(self):
         env = super().get_env()
 
         extra_env = {}
+        # Rename notebook user (jovyan) to Chameleon username
         extra_env['NB_USER'] = self.user.name
         extra_env['OS_KEYPAIR_PRIVATE_KEY'] = f'{self.work_dir}/.ssh/id_rsa'
         extra_env['OS_KEYPAIR_PUBLIC_KEY'] = f'{self.work_dir}/.ssh/id_rsa.pub'
         env.update(extra_env)
 
         return env
-
-    def _is_import_environment(self):
-        return self._get_import_info() is not None
-
-    def _get_import_info(self):
-        if self.handler:
-            return get_import_params(self.handler.request.query)
-        else:
-            self.log.warning((
-                'Attempted to resolve import information from spawner before '
-                'a handler existed. Defaulting to assuming no import flow '
-                'is needed.'))
-            return None
 
     def _gen_volume_config(self, target):
         return dict(

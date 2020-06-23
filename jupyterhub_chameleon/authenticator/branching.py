@@ -69,6 +69,18 @@ class ChameleonAuthenticator(Authenticator):
         """
     )
 
+    hub_public_url = Unicode(
+        os.getenv('JUPYTERHUB_PUBLIC_URL'),
+        config=True,
+        help="""
+        The full (public) base URL of the JupyterHub
+        server. JupyterHub should really provide this to
+        managed services, but it doesn't, so we have to. The
+        issue is that we are behind a reverse proxy, so we need
+        to inform JupyterHub of this.
+        """
+    )
+
     # Force auto_login so that we don't render the default login form.
     auto_login = Bool(True)
 
@@ -140,8 +152,12 @@ class ChameleonAuthenticator(Authenticator):
             # auth_state not enabled
             self.log.error('auth_state is not enabled! Cannot set OpenStack RC parameters')
             return
+
         for rc_key, rc_value in auth_state.get('openstack_rc', {}).items():
             spawner.environment[rc_key] = rc_value
+
+        if self.hub_public_url:
+            spawner.environment['JUPYTERHUB_PUBLIC_URL'] = self.hub_public_url
 
 
 def wants_oidc_login(handler):
