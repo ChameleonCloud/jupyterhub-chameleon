@@ -1,13 +1,14 @@
 import base64
 import json
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, parse_qsl
 
 from jupyterhub.auth import Authenticator, LoginHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
 from keystoneauthenticator import KeystoneAuthenticator
 from tornado import gen
+from tornado.httputil import url_concat
 from traitlets import default, Bool, Int, Unicode
 
 from .keycloak import ChameleonKeycloakAuthenticator
@@ -22,6 +23,9 @@ class DetectLoginMethodHandler(BaseHandler):
             url = url_path_join(self.hub.base_url, 'oauth_login')
         else:
             url = url_path_join(self.hub.base_url, 'login-form')
+        # Ensure we proxy any query parameters
+        if self.request.query:
+            url = url_concat(url, parse_qsl(self.request.query))
         self.redirect(url)
 
 

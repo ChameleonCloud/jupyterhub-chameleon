@@ -104,6 +104,15 @@ class ChameleonSpawner(DockerSpawner):
         extra_env['NB_USER'] = self.user.name
         extra_env['OS_KEYPAIR_PRIVATE_KEY'] = f'{self.work_dir}/.ssh/id_rsa'
         extra_env['OS_KEYPAIR_PUBLIC_KEY'] = f'{self.work_dir}/.ssh/id_rsa.pub'
+
+        # Add parameters for experiment import
+        if self.handler:
+            import_info = get_import_params(self.handler.request.query)
+            if import_info:
+                source, path = import_info
+                extra_env['IMPORT_SRC'] = source
+                extra_env['SRC_PATH'] = path
+
         env.update(extra_env)
 
         return env
