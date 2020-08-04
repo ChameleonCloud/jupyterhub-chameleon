@@ -11,7 +11,6 @@ so cull timeout should be greater than the sum of:
 
 You can run this as a service managed by JupyterHub with this in your config::
 
-
     c.JupyterHub.services = [
         {
             'name': 'cull-idle',

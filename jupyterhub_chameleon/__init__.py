@@ -1,7 +1,7 @@
 import os
 import sys
 
-from .handler import UserRedirectExperimentHandler
+from .handler import AccessTokenHandler, UserRedirectExperimentHandler
 
 origin = '*'
 server_idle_timeout = 60 * 60 * 24
@@ -28,6 +28,7 @@ def install_extension(config):
 
     c.JupyterHub.extra_handlers = [
         (r'/import', UserRedirectExperimentHandler),
+        (r'/api/tokens', AccessTokenHandler),
     ]
 
     _configure_authenticator(c)
@@ -53,22 +54,6 @@ def _configure_services(c):
                 '--cull_every={}'.format(60 * 15),
             ],
         },
-        {
-            'name': 'oauth-refresh',
-            'url': 'http://127.0.0.1:8880',
-            'command': [
-                sys.executable,
-                '-m', 'jupyterhub_chameleon.service.oauth_refresh',
-            ],
-            # Managed services do not inherit the env of their parent host
-            # apparently... we have to explicitly add more environment here.
-            'environment': {
-                'KEYCLOAK_CLIENT_ID': os.getenv('KEYCLOAK_CLIENT_ID'),
-                'KEYCLOAK_CLIENT_SECRET': os.getenv('KEYCLOAK_CLIENT_SECRET'),
-                'KEYCLOAK_SERVER_URL': os.getenv('KEYCLOAK_SERVER_URL'),
-                'KEYCLOAK_REALM_NAME': os.getenv('KEYCLOAK_REALM_NAME'),
-            }
-        }
     ]
 
 
