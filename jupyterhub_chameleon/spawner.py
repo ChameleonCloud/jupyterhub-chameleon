@@ -2,7 +2,7 @@ import os
 from urllib.parse import parse_qsl
 
 from dockerspawner import DockerSpawner
-from traitlets import default, Bool, Unicode
+from traitlets import default, Bool, Dict, Unicode
 from .utils import get_import_params
 
 class ChameleonSpawner(DockerSpawner):
@@ -48,10 +48,13 @@ class ChameleonSpawner(DockerSpawner):
         else:
             return '{prefix}-{username}'
 
-    @default('volumes')
-    def _volumes(self):
+    extra_volumes = Dict(config=True, default_value={})
+
+    @property
+    def volumes(self):
         return {
-            self.name_template: self._gen_volume_config(self.work_dir)
+            self.name_template: self._gen_volume_config(self.work_dir),
+            **self.extra_volumes
         }
 
     @default('environment')
@@ -65,6 +68,9 @@ class ChameleonSpawner(DockerSpawner):
             'JUPYTER_ENABLE_LAB': 'yes',
         }
 
+    resource_limits = Bool(config=True, default_value=True,
+        help='Whether to set default resource limits on the spawned servers.')
+
     @default('extra_host_config')
     def _extra_host_config(self):
         """Configure docker host vars.
@@ -74,12 +80,16 @@ class ChameleonSpawner(DockerSpawner):
         many cores a container will be allowed to have in a CPU-bound scheduling
         situation, e.g. 100/100 = 1 core.
         """
-        return {
-            'network_mode': self.network_name,
-            'mem_limit': '1G',
-            'cpu_period': 100000, # nanosecs
-            'cpu_quota': 100000, # nanosecs
-        }
+        host_config = {'network_mode': self.network_name}
+
+        if self.resource_limits:
+            host_config.update({
+                'mem_limit': '1G',
+                'cpu_period': 100000, # nanosecs
+                'cpu_quota': 100000, # nanosecs
+            })
+
+        return host_config
 
     @default('extra_create_kwargs')
     def _extra_create_kwargs(self):
