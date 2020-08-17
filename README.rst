@@ -46,7 +46,7 @@ Environment variables are the easiest way to control the default behavior of
 this module:
 
 :DEBUG:
-  (bool) whether to enable debug logging
+  (bool) whether to enable debug logging.
 :JUPYTERHUB_PUBLIC_URL:
   (str) the full (public) base URL of the JupyterHub server. JupyterHub should
   really provide this to managed services, but it doesn't, so we have to. The
@@ -54,35 +54,45 @@ this module:
   of this.
 :DOCKER_VOLUME_DRIVER:
   (str) the name of the Docker volume driver to use when creating user work
-  directories
+  directories.
 :DOCKER_VOLUME_DRIVER_OPTS:
   (str) options, comma-separated "key=value" pairs, passed to the volume create
-  command
+  command.
 :DOCKER_NOTEBOOK_IMAGE:
-  (str) the name of the Docker image to spawn for users
+  (str) the name of the Docker image to spawn for users.
 :DOCKER_NETWORK_NAME:
-  (str) the Docker network name
+  (str) the Docker network name.
 :KEYCLOAK_SERVER_URL:
-  (str) the full base URL of the Keycloak server
+  (str) the full base URL of the Keycloak server.
 :KEYCLOAK_REALM_NAME:
-  (str) the Keycloak realm name to authenticate against
+  (str) the Keycloak realm name to authenticate against.
 :KEYCLOAK_CLIENT_ID:
-  (str) the Keycloak client ID
+  (str) the Keycloak client ID.
 :KEYCLOAK_CLIENT_SECRET:
-  (str) the Keycloak client secret
+  (str) the Keycloak client secret.
 :OS_AUTH_URL:
-  (str) the full base URL of the Keystone public endpoint
+  (str) the full base URL of the Keystone public endpoint. This auth URL is
+  used for the Keystone authenticator, is pre-populated inside spawned user
+  environments, and is by default used for any OpenStack integrations internal
+  to the JupyterHub.
 :OS_REGION_NAME:
   (str) an optional default Keystone region; if not set, the first detected
-  region is used when looking up services
+  region is used when looking up services.
 :OS_IDENTITY_PROVIDER:
   (str) the Keystone identity provider to use when logging in via federated
-  authentication
+  authentication.
 :OS_PROTOCOL:
-  (str) the Keystone federation protocol to use (openid, saml)
-:CHAMELEON_SHARING_PORTAL_UPLOAD_URL:
-  (str) the full URL for the endpoint in the Chameleon sharing portal that
-  starts the artifact creation flow.
-:CHAMELEON_SHARING_PORTAL_UPDATE_URL:
-  (str) the full URL for the endpoint in the Chameleon sharing portal that
-  starts the update flow.
+  (str) the Keystone federation protocol to use (openid, saml).
+:ARTIFACT_SHARING_SWIFT_CONTAINER:
+  (str) the Swift container to store uploaded artifacts. Defaults to "trovi"
+:ARTIFACT_SHARING_SWIFT_CONTAINER_TEMP_URL_KEY:
+  (str) the Swift secret key for signing temporary URLs.
+:ARTIFACT_SHARING_SWIFT_ENDPOINT:
+  (str) the Swift endpoint URL to use when generating temporary URLs.
+:ARTIFACT_SHARING_TRUST_PROJECT_NAME:
+  (str) the Keystone project to bind publish trusts to. Paired with Swift ACLs,
+  this allows for a container to be write-only from any authenticated user.
+  Defaults to "trovi".
+:ARTIFACT_SHARING_OS_\*:
+  (str) OpenStack RC parameter overrides to use when authenticating to Keystone
+  to generate upload trusts and tokens.

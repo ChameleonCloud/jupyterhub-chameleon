@@ -119,9 +119,9 @@ class ChameleonSpawner(DockerSpawner):
         if self.handler:
             import_info = get_import_params(self.handler.request.query)
             if import_info:
-                source, path = import_info
-                extra_env['IMPORT_SRC'] = source
-                extra_env['SRC_PATH'] = path
+                repo, id = import_info
+                extra_env['IMPORT_SRC'] = repo
+                extra_env['SRC_PATH'] = id
 
         env.update(extra_env)
 

@@ -7,6 +7,8 @@ from oauthenticator.oauth2 import OAuthenticator, OAuthLoginHandler, OAuthCallba
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient
 from traitlets import default, Unicode
 
+from .config import OPENSTACK_RC_AUTH_STATE_KEY
+
 
 class ForceOAuthUsageMixin:
     @property
@@ -183,7 +185,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             'auth_state': {
                 'access_token': access_token,
                 'refresh_token': refresh_token,
-                'openstack_rc': openstack_rc,
+                OPENSTACK_RC_AUTH_STATE_KEY: openstack_rc,
             },
         }
 

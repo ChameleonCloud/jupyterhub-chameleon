@@ -11,6 +11,7 @@ from tornado import gen
 from tornado.httputil import url_concat
 from traitlets import default, Bool, Int, Unicode
 
+from .config import OPENSTACK_RC_AUTH_STATE_KEY
 from .keycloak import ChameleonKeycloakAuthenticator
 
 LOGIN_FLOW_COOKIE_NAME = 'login_flow'
@@ -157,7 +158,7 @@ class ChameleonAuthenticator(Authenticator):
             self.log.error('auth_state is not enabled! Cannot set OpenStack RC parameters')
             return
 
-        for rc_key, rc_value in auth_state.get('openstack_rc', {}).items():
+        for rc_key, rc_value in auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {}).items():
             spawner.environment[rc_key] = rc_value
 
         if self.hub_public_url:

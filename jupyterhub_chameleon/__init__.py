@@ -1,7 +1,10 @@
 import os
 import sys
 
-from .handler import AccessTokenHandler, UserRedirectExperimentHandler
+from .handler import AccessTokenHandler
+from .handler import ArtifactPublishDownloadURLHandler
+from .handler import ArtifactPublishUploadTokenHandler
+from .handler import UserRedirectExperimentHandler
 
 origin = '*'
 server_idle_timeout = 60 * 60 * 24
@@ -29,6 +32,8 @@ def install_extension(config):
     c.JupyterHub.extra_handlers = [
         (r'/import', UserRedirectExperimentHandler),
         (r'/api/tokens', AccessTokenHandler),
+        (r'/api/share/publish_token', ArtifactPublishUploadTokenHandler),
+        (r'/api/share/download_url', ArtifactPublishDownloadURLHandler),
     ]
 
     _configure_authenticator(c)
