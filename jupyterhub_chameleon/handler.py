@@ -1,8 +1,6 @@
 import hashlib
-import hmac
 import json
 import os
-from time import time
 from urllib.parse import parse_qsl, unquote, urlencode
 
 from jupyterhub.apihandlers import APIHandler
@@ -147,7 +145,7 @@ class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
             interface=os.environ.get('OS_INTERFACE'),
             region_name=os.environ.get('OS_REGION_NAME'))
 
-        publish_token = None
+        response = None
         trust_project_name = (
             os.environ.get('ARTIFACT_SHARING_TRUST_PROJECT_NAME', 'trovi'))
 
@@ -174,18 +172,23 @@ class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
                 f'({trustee_user_id})'))
 
             # Re-scope to trust
-            user_session.auth.trust_id = trust.id
-            trust_session = Session(auth=user_session.auth)
-            del user_session  # We mutated the user_session; cleanup for safety
-            # Immediately consume the trust
-            publish_token = trust_session.get_token()
+            # NOTE(jason): it's unclear if it's actually necessary to generate
+            # the token at this point. It does make a few things easier in
+            # the jupyterlab-chameleon extension though, as we don't have to
+            # bootstrap the user's auth creds from their environment.
+            trust_overrides = openstack_rc.copy()
+            trust_overrides.update(dict(OS_TRUST_ID=trust.id))
+            trust_session = keystone_session(env_overrides=trust_overrides)
+            response = dict(
+                auth_url=trust_session.auth.auth_url,
+                token=trust_session.get_token(),
+                trust_id=trust.id,
+            )
         except:
             self.log.exception(
                 f'Failed to issue publish token for {self.current_user}')
 
-        if publish_token:
-            response = dict(token=publish_token)
-        else:
+        if not response:
             response = dict(error='Could not obtain publish token')
 
         self.write(json.dumps(response))

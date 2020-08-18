@@ -1,4 +1,8 @@
 import argparse
+import hashlib
+import hmac
+import os
+from time import time
 from urllib.parse import parse_qsl
 
 from keystoneauth1 import loading
@@ -69,7 +73,7 @@ def download_url(artifact_id: str) -> str:
     duration_in_seconds = 60
     expires = int(time() + duration_in_seconds)
 
-    path = f'{container}/{object_key}'
+    path = f'{container}/{artifact_id}'
     hmac_body = f'GET\n{expires}\n{path}'
     sig = hmac.new(
         container_key.encode('utf-8'), hmac_body.encode('utf-8'),

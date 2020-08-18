@@ -17,7 +17,7 @@ class ChameleonSpawner(DockerSpawner):
     )
 
     # Always remove stopped containers
-    remove = Bool(True)
+    remove = Bool(True, config=True)
 
     # Default to JupyterLab
     default_url = Unicode('/lab')
@@ -120,7 +120,7 @@ class ChameleonSpawner(DockerSpawner):
             import_info = get_import_params(self.handler.request.query)
             if import_info:
                 artifact_repo, artifact_id = import_info
-                if repo == 'chameleon':
+                if artifact_repo == 'chameleon':
                     import_url = download_url(artifact_id)
                 else:
                     import_url = artifact_id

@@ -74,6 +74,8 @@ def _configure_spawner(c):
         f'--MappingKernelManager.cull_idle_timeout={kernel_idle_timeout}',
         f'--MappingKernelManager.cull_interval={kernel_idle_timeout}',
     ])
+    if debug:
+        c.ChameleonSpawner.remove = False
 
 
 def _configure_zenodo(c):
