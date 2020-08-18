@@ -66,7 +66,7 @@ class AccessTokenMixin:
 
         if refresh_token:
             new_tokens = await self._fetch_new_token(refresh_token)
-            access_token = auth_state.get('access_token')
+            access_token = new_tokens.get('access_token')
             if access_token:
                 auth_state['access_token'] = access_token
                 auth_state['refresh_token'] = new_tokens['refresh_token']
@@ -189,33 +189,3 @@ class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
             response = dict(error='Could not obtain publish token')
 
         self.write(json.dumps(response))
-
-
-class ArtifactPublishDownloadURLHandler(APIHandler):
-    async def get(self):
-        if not self.current_user:
-            raise HTTPError(401, 'Authentication with API token required')
-
-        object_key = None
-        if self.request.query:
-            query = dict(parse_qsl(self.request.query))
-            object_key = query.get('artifact_id')
-
-        if not object_key:
-            raise HTTPError(400, 'Missing artifact_id on request')
-
-        endpoint = os.environ['ARTIFACT_SHARING_SWIFT_ENDPOINT']
-        container = os.environ.get('ARTIFACT_SHARING_SWIFT_CONTAINER', 'trovi')
-        container_key = os.environ['ARTIFACT_SHARING_SWIFT_CONTAINER_TEMP_URL_KEY']
-        duration_in_seconds = 60
-        expires = int(time() + duration_in_seconds)
-        path = f'{container}/{object_key}'
-        hmac_body = f'GET\n{expires}\n{path}'
-        sig = hmac.new(
-            container_key.encode('utf-8'), hmac_body.encode('utf-8'),
-            hashlib.sha1
-        ).hexdigest()
-
-        download_url = f'{endpoint}/{path}?temp_url_sig={sig}&temp_url_expires={expires}'
-
-        self.write(json.dumps(dict(download_url=download_url)))

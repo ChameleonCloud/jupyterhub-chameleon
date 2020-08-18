@@ -60,3 +60,20 @@ def keystone_session(env_overrides: dict = {}) -> Session:
     args = parser.parse_args(fake_argv)
     auth = loading.cli.load_from_argparse_arguments(args)
     return Session(auth=auth)
+
+
+def download_url(artifact_id: str) -> str:
+    endpoint = os.environ['ARTIFACT_SHARING_SWIFT_ENDPOINT']
+    container = os.environ.get('ARTIFACT_SHARING_SWIFT_CONTAINER', 'trovi')
+    container_key = os.environ['ARTIFACT_SHARING_SWIFT_CONTAINER_TEMP_URL_KEY']
+    duration_in_seconds = 60
+    expires = int(time() + duration_in_seconds)
+
+    path = f'{container}/{object_key}'
+    hmac_body = f'GET\n{expires}\n{path}'
+    sig = hmac.new(
+        container_key.encode('utf-8'), hmac_body.encode('utf-8'),
+        hashlib.sha1
+    ).hexdigest()
+
+    return f'{endpoint}/{path}?temp_url_sig={sig}&temp_url_expires={expires}'

@@ -2,7 +2,6 @@ import os
 import sys
 
 from .handler import AccessTokenHandler
-from .handler import ArtifactPublishDownloadURLHandler
 from .handler import ArtifactPublishUploadTokenHandler
 from .handler import UserRedirectExperimentHandler
 
@@ -26,14 +25,14 @@ def install_extension(config):
     # Enable restarting of Hub without affecting singleuser servers
     c.JupyterHub.cleanup_servers = False
     c.JupyterHub.cleanup_proxy = False
-    # Keystone tokens only last 7 days; limit sessions to this amount of time too.
-    c.JupyterHub.cookie_max_age_days = 7
+    # Keycloak SSO sessions only last 1 day; the Jupyter session length needs
+    # to match to avoid ...
+    c.JupyterHub.cookie_max_age_days = 1
 
     c.JupyterHub.extra_handlers = [
         (r'/import', UserRedirectExperimentHandler),
         (r'/api/tokens', AccessTokenHandler),
         (r'/api/share/publish_token', ArtifactPublishUploadTokenHandler),
-        (r'/api/share/download_url', ArtifactPublishDownloadURLHandler),
     ]
 
     _configure_authenticator(c)
