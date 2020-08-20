@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from urllib.parse import parse_qsl, unquote, urlencode
+import uuid
 
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
@@ -12,7 +13,7 @@ from tornado.web import HTTPError, authenticated
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
-from .utils import get_import_params, keystone_session
+from .utils import get_import_params, keystone_session, upload_url
 
 
 class UserRedirectExperimentHandler(BaseHandler):
@@ -33,12 +34,12 @@ class UserRedirectExperimentHandler(BaseHandler):
 
             if not import_info:
                 raise HTTPError(400, (
-                    'Missing required arguments: source, src_path'))
+                    'Missing required arguments: repo, id'))
 
-            repo, id = import_info
+            artifact_repo, artifact_id, _ = import_info
             sha = hashlib.sha256()
-            sha.update(repo.encode('utf-8'))
-            sha.update(id.encode('utf-8'))
+            sha.update(artifact_repo.encode('utf-8'))
+            sha.update(artifact_id.encode('utf-8'))
             server_name = sha.hexdigest()[:7]
 
             # Auto-open file when we land in server
@@ -120,7 +121,7 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
         self.write(json.dumps(response))
 
 
-class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
+class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
     async def get(self):
         if not self.current_user:
             raise HTTPError(401, 'Authentication with API token required')
@@ -151,11 +152,9 @@ class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
 
         try:
             user_token = user_session.get_token()
-            user_info = admin_ks_client.tokens.validate(user_token)
-            trustee_user_id = user_info.user_id
+            trustee_user_id = user_session.get_user_id()
             admin_token = admin_session.get_token()
-            admin_info = admin_ks_client.tokens.validate(admin_token)
-            trustor_user_id = admin_info.user_id
+            trustor_user_id = admin_session.get_user_id()
             trust_project = next(iter(
                 admin_ks_client.projects.list(name=trust_project_name)), None)
 
@@ -171,24 +170,24 @@ class ArtifactPublishUploadTokenHandler(AccessTokenMixin, APIHandler):
                 f'Created trust {trust.id} for user {self.current_user} '
                 f'({trustee_user_id})'))
 
-            # Re-scope to trust
-            # NOTE(jason): it's unclear if it's actually necessary to generate
-            # the token at this point. It does make a few things easier in
-            # the jupyterlab-chameleon extension though, as we don't have to
-            # bootstrap the user's auth creds from their environment.
             trust_overrides = openstack_rc.copy()
             trust_overrides.update(dict(OS_TRUST_ID=trust.id))
             trust_session = keystone_session(env_overrides=trust_overrides)
+
+            artifact_id = str(uuid.uuid4())
             response = dict(
-                auth_url=trust_session.auth.auth_url,
-                token=trust_session.get_token(),
-                trust_id=trust.id,
+                artifact_id=artifact_id,
+                publish_endpoint=dict(
+                    url=upload_url(artifact_id),
+                    method='PUT',
+                    headers=trust_session.get_auth_headers(),
+                ),
             )
         except:
             self.log.exception(
-                f'Failed to issue publish token for {self.current_user}')
+                f'Failed to prepare upload for {self.current_user}')
 
         if not response:
-            response = dict(error='Could not obtain publish token')
+            response = dict(error='Could not prepare upload')
 
         self.write(json.dumps(response))
