@@ -38,7 +38,6 @@ def install_extension(config):
     _configure_authenticator(c)
     _configure_services(c)
     _configure_spawner(c)
-    _configure_zenodo(c)
 
 
 def _configure_authenticator(c):
@@ -76,22 +75,6 @@ def _configure_spawner(c):
     ])
     if debug:
         c.ChameleonSpawner.remove = False
-
-
-def _configure_zenodo(c):
-    access_token = os.getenv('ZENODO_DEFAULT_ACCESS_TOKEN')
-    upload_url = os.getenv('CHAMELEON_SHARING_PORTAL_UPLOAD_URL', '')
-    update_url = os.getenv('CHAMELEON_SHARING_PORTAL_UPDATE_URL', '')
-
-    # Pass extra configuration for Zenodo extension
-    c.ChameleonSpawner.args.extend([
-        f'--ZenodoConfig.access_token={access_token}',
-        f'--ZenodoConfig.upload_redirect_url={upload_url}',
-        f'--ZenodoConfig.update_redirect_url={update_url}',
-        f'--ZenodoConfig.dev={debug}',
-        '--ZenodoConfig.community=chameleon',
-        '--ZenodoConfig.database_location=~/work/.zenodo',
-    ])
 
 
 __all__ = ['install_extension']

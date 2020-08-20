@@ -20,8 +20,7 @@ class UserRedirectExperimentHandler(BaseHandler):
     """Redirect spawn requests to user servers.
 
     /import?{query vars} will spawn a new experiment server
-    Server will be initialized with a git repo/zenodo zip file as specified
-    If the user is not logged in, send to login URL, redirecting back here.
+    Server will be initialized with a given artifact/repository.
     """
     @authenticated
     def get(self):

@@ -12,8 +12,8 @@ This module contains several extensions and congurations relevant for Chameleon:
 * A Docker-based spawner preconfigured with volumes backed by RBD and special
   handling of user scratch directories vs. experimental (ephemeral) mounts
 * An experiment import handler, which is used to craft a special spawn request
-  that pulls code either from GitHub or a Zenodo deposition to create an
-  ephemeral experimental environment
+  that pulls code either from an external location to create an ephemeral
+  experimental environment
 * A managed service that can refresh a user's access tokens
 
 Installation
@@ -83,12 +83,13 @@ this module:
   authentication.
 :OS_PROTOCOL:
   (str) the Keystone federation protocol to use (openid, saml).
+:ARTIFACT_SHARING_SWIFT_ACCOUNT:
+  (str) the Swift account ID to upload artifacts as. This should match either
+    the account owner for the container, or some account that has read access.
 :ARTIFACT_SHARING_SWIFT_CONTAINER:
   (str) the Swift container to store uploaded artifacts. Defaults to "trovi"
-:ARTIFACT_SHARING_SWIFT_CONTAINER_TEMP_URL_KEY:
+:ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY:
   (str) the Swift secret key for signing temporary URLs.
-:ARTIFACT_SHARING_SWIFT_ENDPOINT:
-  (str) the Swift endpoint URL to use when generating temporary URLs.
 :ARTIFACT_SHARING_TRUST_PROJECT_NAME:
   (str) the Keystone project to bind publish trusts to. Paired with Swift ACLs,
   this allows for a container to be write-only from any authenticated user.
