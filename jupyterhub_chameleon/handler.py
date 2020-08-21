@@ -170,7 +170,15 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
                 f'({trustee_user_id})'))
 
             trust_overrides = openstack_rc.copy()
-            trust_overrides.update(dict(OS_TRUST_ID=trust.id))
+            trust_overrides['OS_TRUST_ID'] = trust.id
+            # Ensure no project-scoping keys are set on the keystone session;
+            # this will interfere with trust-scoping.
+            project_scoping_keys = ['OS_PROJECT_NAME', 'OS_PROJECT_DOMAIN_NAME',
+                                    'OS_TENANT_NAME', 'OS_TENANT_DOMAIN_NAME',
+                                    'OS_PROJECT_ID', 'OS_TENANT_ID']
+            for k in project_scoping_keys:
+                if k in trust_overrides:
+                    del trust_overrides[k]
             trust_session = keystone_session(env_overrides=trust_overrides)
 
             artifact_id = str(uuid.uuid4())
