@@ -103,6 +103,14 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         """
     )
 
+    keystone_project_domain_name = Unicode(
+        os.getenv('OS_PROJECT_DOMAIN_NAME', 'chameleon'),
+        config=True,
+        help="""
+        Keystone domain name for federated domain
+        """
+    )
+
     keystone_default_region_name = Unicode(
         os.getenv('OS_REGION_NAME', ''),
         config=True,
@@ -172,6 +180,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
                 'OS_IDENTITY_PROVIDER': self.keystone_identity_provider,
                 'OS_PROTOCOL': self.keystone_protocol,
                 'OS_AUTH_TYPE': 'v3oidcaccesstoken',
+                'OS_PROJECT_DOMAIN_NAME': self.keystone_project_domain_name,
             }
             if self.keystone_default_region_name:
                 openstack_rc['OS_REGION_NAME'] = (
