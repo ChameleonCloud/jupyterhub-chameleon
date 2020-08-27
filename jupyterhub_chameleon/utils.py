@@ -1,4 +1,5 @@
 import argparse
+from collections import namedtuple
 import hashlib
 import hmac
 import os
@@ -11,33 +12,76 @@ from keystoneauth1.session import Session
 from keystoneclient.v3 import client
 
 
-def get_import_params(query):
-    """Given an HTML query string, find the parameters relevant for import.
+class Artifact:
+    """A shared experiment/research artifact that can be spawned in JupyterHub.
 
-    :type query: Union[dict,str]
-    :param query: the request query parameters (as a query string, or as a
-                  parsed dictionary)
-    :returns: a tuple of the import source and ID, if both were on the
-              querystring, None otherwise
+    Attrs:
+        deposition_repo (str): the name of the deposition repository (e.g.,
+            "zenodo" or "chameleon")
+        deposition_id (str): the ID of the deposition within the repository.
+        id (str): the external Trovi ID of the artifact linked to this
+            deposition. Default = None.
+        ownership (str): the requesting user's ownership status of this
+            artifact. Default = "fork".
     """
-    if isinstance(query, str):
-        query = dict(parse_qsl(query))
+    def __init__(self, deposition_repo=None, deposition_id=None, id=None,
+                 ownership='fork'):
+        self.id = id
+        self.deposition_repo = deposition_repo
+        self.deposition_id = deposition_id
+        self.ownership = ownership
 
-    # NOTE(jason): fallback to legacy query keys. This can be removed when
-    # Portal has been updated to have new import links like ?source,id
-    artifact_repo = query.get('repo', query.get('source'))
-    artifact_id = query.get('id', query.get('src_path'))
+        # Only the deposition information is required. Theoretically this can
+        # allow importing arbitrary Zenodo DOIs or from other sources that are
+        # not yet existing on Trovi.
+        if not (deposition_repo and deposition_id):
+            raise ValueError('Missing deposition information')
 
-    if artifact_repo is not None and artifact_id is not None:
-        if artifact_repo == 'chameleon':
-            url = download_url(artifact_id)
-        elif artifact_repo == 'zenodo':
-            url = zenodo_url(artifact_id)
-        else:
-            url = artifact_id
-        return (artifact_repo, artifact_id, url)
-    else:
-        return None
+    def deposition_url(self):
+        url_factory = getattr(self.__class__, f'{self.deposition_repo}_url_factory', None)
+        if not url_factory:
+            return None
+        return url_factory(self.deposition_id)
+
+    @classmethod
+    def from_query(cls, query):
+        if isinstance(query, str):
+            query = dict(parse_qsl(query))
+
+        try:
+            return cls(**query)
+        except:
+            return None
+
+    @staticmethod
+    def chameleon_url_factory(deposition_id: str) -> str:
+        origin, path = _swift_url_parts(deposition_id)
+        key = os.environ['ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY']
+        duration_in_seconds = 60
+        expires = int(time() + duration_in_seconds)
+        hmac_body = f'GET\n{expires}\n{path}'
+        sig = hmac.new(
+            key.encode('utf-8'), hmac_body.encode('utf-8'),
+            hashlib.sha1
+        ).hexdigest()
+
+        return f'{origin}{path}?temp_url_sig={sig}&temp_url_expires={expires}'
+
+    @staticmethod
+    def zenodo_url_factory(deposition_id: str) -> str:
+        # TODO: make this configurable
+        zenodo_base = 'https://zenodo.org'
+        record_id = deposition_id.split('.')[-1]
+        res = requests.get(f'{zenodo_base}/api/records/{record_id}')
+        res.raise_for_status()
+        file_links = [
+            f.get('links', {}).get('self')
+            for f in res.json().get('files', [])
+        ]
+        file_links = [l for l in file_links if l is not None]
+        if not file_links:
+            raise ValueError('Found no file URLs on Zenodo deposition')
+        return file_links[0]
 
 
 def keystone_session(env_overrides: dict = {}) -> Session:
@@ -82,7 +126,7 @@ def artifact_sharing_keystone_session():
     return keystone_session(env_overrides=artifact_sharing_overrides)
 
 
-def _swift_url_parts(artifact_id: str) -> str:
+def _swift_url_parts(deposition_id: str) -> str:
     session = artifact_sharing_keystone_session()
     project_id = os.environ.get(
         'ARTIFACT_SHARING_SWIFT_ACCOUNT', session.get_project_id())
@@ -98,39 +142,9 @@ def _swift_url_parts(artifact_id: str) -> str:
 
     origin = endpoint[:endpoint.index('/v1/')]
     container = os.environ.get('ARTIFACT_SHARING_SWIFT_CONTAINER', 'trovi')
-    return origin, f'/v1/AUTH_{project_id}/{container}/{artifact_id}'
+    return origin, f'/v1/AUTH_{project_id}/{container}/{deposition_id}'
 
 
-def upload_url(artifact_id: str) -> str:
-    origin, path = _swift_url_parts(artifact_id)
+def upload_url(deposition_id: str) -> str:
+    origin, path = _swift_url_parts(deposition_id)
     return f'{origin}{path}'
-
-
-def download_url(artifact_id: str) -> str:
-    origin, path = _swift_url_parts(artifact_id)
-    key = os.environ['ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY']
-    duration_in_seconds = 60
-    expires = int(time() + duration_in_seconds)
-    hmac_body = f'GET\n{expires}\n{path}'
-    sig = hmac.new(
-        key.encode('utf-8'), hmac_body.encode('utf-8'),
-        hashlib.sha1
-    ).hexdigest()
-
-    return f'{origin}{path}?temp_url_sig={sig}&temp_url_expires={expires}'
-
-
-def zenodo_url(doi: str) -> str:
-    # TODO: make this configurable
-    zenodo_base = 'https://zenodo.org'
-    record_id = doi.split('.')[-1]
-    res = requests.get(f'{zenodo_base}/api/records/{record_id}')
-    res.raise_for_status()
-    file_links = [
-        f.get('links', {}).get('self')
-        for f in res.json().get('files', [])
-    ]
-    file_links = [l for l in file_links if l is not None]
-    if not file_links:
-        raise ValueError('Found no file URLs on Zenodo deposition')
-    return file_links[0]

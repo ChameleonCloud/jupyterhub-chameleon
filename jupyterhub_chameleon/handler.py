@@ -13,7 +13,7 @@ from tornado.web import HTTPError, authenticated
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
-from .utils import get_import_params, keystone_session, upload_url
+from .utils import Artifact, keystone_session, upload_url
 
 
 class UserRedirectExperimentHandler(BaseHandler):
@@ -29,16 +29,15 @@ class UserRedirectExperimentHandler(BaseHandler):
 
         if self.request.query:
             query = dict(parse_qsl(self.request.query))
-            import_info = get_import_params(query)
+            artifact = Artifact.from_query(query)
 
-            if not import_info:
+            if not artifact:
                 raise HTTPError(400, (
-                    'Missing required arguments: repo, id'))
+                    'Could not understand import request'))
 
-            artifact_repo, artifact_id, _ = import_info
             sha = hashlib.sha256()
-            sha.update(artifact_repo.encode('utf-8'))
-            sha.update(artifact_id.encode('utf-8'))
+            sha.update(artifact.deposition_repo.encode('utf-8'))
+            sha.update(artifact.deposition_id.encode('utf-8'))
             server_name = sha.hexdigest()[:7]
 
             # Auto-open file when we land in server
@@ -181,11 +180,11 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
                     del trust_overrides[k]
             trust_session = keystone_session(env_overrides=trust_overrides)
 
-            artifact_id = str(uuid.uuid4())
+            deposition_id = str(uuid.uuid4())
             response = dict(
-                artifact_id=artifact_id,
+                deposition_id=deposition_id,
                 publish_endpoint=dict(
-                    url=upload_url(artifact_id),
+                    url=upload_url(deposition_id),
                     method='PUT',
                     headers=trust_session.get_auth_headers(),
                 ),

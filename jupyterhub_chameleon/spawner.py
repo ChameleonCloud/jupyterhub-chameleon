@@ -3,7 +3,7 @@ from urllib.parse import parse_qsl
 
 from dockerspawner import DockerSpawner
 from traitlets import default, Bool, Dict, Unicode
-from .utils import get_import_params
+from .utils import Artifact
 
 class ChameleonSpawner(DockerSpawner):
     work_dir = Unicode(
@@ -117,14 +117,16 @@ class ChameleonSpawner(DockerSpawner):
 
         # Add parameters for experiment import
         if self.handler:
-            import_info = get_import_params(self.handler.request.query)
-            if import_info:
-                artifact_repo, artifact_id, artifact_url = import_info
-                extra_env['IMPORT_URL'] = artifact_url
-                extra_env['IMPORT_REPO'] = artifact_repo
+            artifact = Artifact.from_query(self.handler.request.query)
+            if artifact:
+                deposition_url = artifact.deposition_url()
+                extra_env['ARTIFACT_DEPOSITION_URL'] = deposition_url
+                extra_env['ARTIFACT_DEPOSITION_REPO'] = artifact.deposition_repo
+                extra_env['ARTIFACT_ID'] = artifact.id
+                extra_env['ARTIFACT_OWNERSHIP'] = artifact.ownership
                 self.log.info(
-                    f'User {self.user.name} importing from {artifact_repo}: '
-                    f'{artifact_url}')
+                    f'User {self.user.name} importing from '
+                    f'{artifact.deposition_repo}: {deposition_url}')
 
         env.update(extra_env)
 
