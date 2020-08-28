@@ -14,7 +14,8 @@ from traitlets import default, Bool, Int, Unicode
 from .config import OPENSTACK_RC_AUTH_STATE_KEY
 from .keycloak import ChameleonKeycloakAuthenticator
 
-LOGIN_FLOW_COOKIE_NAME = 'login_flow'
+# This is set by the Chameleon user portal
+LOGIN_FLOW_COOKIE_NAME = 'new_login_experience'
 
 
 class DetectLoginMethodHandler(BaseHandler):
@@ -28,13 +29,6 @@ class DetectLoginMethodHandler(BaseHandler):
         if self.request.query:
             url = url_concat(url, parse_qsl(self.request.query))
         self.redirect(url)
-
-
-class NewLoginFlowOptInHandler(BaseHandler):
-    def get(self):
-        self._set_cookie(LOGIN_FLOW_COOKIE_NAME, '2', encrypted=False,
-                         expires_days=30)
-        self.redirect(url_path_join(self.hub.base_url, 'login-start'))
 
 
 class LoginFormHandler(LoginHandler):
@@ -141,7 +135,6 @@ class ChameleonAuthenticator(Authenticator):
     def get_handlers(self, app):
         handlers = [
             ('/login-start', DetectLoginMethodHandler),
-            ('/new-login-flow', NewLoginFlowOptInHandler),
             ('/login-form', LoginFormHandler),
         ]
         handlers.extend(self.keystone_auth.get_handlers(app))
@@ -166,4 +159,4 @@ class ChameleonAuthenticator(Authenticator):
 
 
 def wants_oidc_login(handler):
-    return handler.get_cookie(LOGIN_FLOW_COOKIE_NAME) == '2'
+    return handler.get_cookie(LOGIN_FLOW_COOKIE_NAME) == '1'
