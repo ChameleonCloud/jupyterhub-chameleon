@@ -1,17 +1,17 @@
 import hashlib
 import json
 import os
-from urllib.parse import parse_qsl, unquote, urlencode
+from urllib.parse import parse_qsl, urlencode
 import uuid
 
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
-from keystoneauth1.session import Session
 from keystoneclient.v3.client import Client as KeystoneClient
 from tornado.web import HTTPError, authenticated
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
+from .authenticator.branching import FORCE_OLD_LOGIN_FLOW_PARAM
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
 from .utils import Artifact, keystone_session, upload_url
 
@@ -197,3 +197,13 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
             response = dict(error='Could not prepare upload')
 
         self.write(json.dumps(response))
+
+
+class ForcePasswordLoginHandler(BaseHandler):
+    """Redirect user to login with a flag forcing the password flow.
+    """
+    def get(self):
+        login_url = self.settings['login_url']
+        query_args = self.request.query_arguments
+        query_args[FORCE_OLD_LOGIN_FLOW_PARAM] = '1'
+        self.redirect(f'{login_url}?{urlencode(query_args)}')

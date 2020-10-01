@@ -3,6 +3,7 @@ import sys
 
 from .handler import AccessTokenHandler
 from .handler import ArtifactPublishPrepareUploadHandler
+from .handler import ForcePasswordLoginHandler
 from .handler import UserRedirectExperimentHandler
 
 origin = '*'
@@ -33,6 +34,7 @@ def install_extension(config):
         (r'/import', UserRedirectExperimentHandler),
         (r'/api/tokens', AccessTokenHandler),
         (r'/api/share/prepare_upload', ArtifactPublishPrepareUploadHandler),
+        (r'/auth/force-password-login', ForcePasswordLoginHandler),
     ]
 
     _configure_authenticator(c)

@@ -16,6 +16,7 @@ from .keycloak import ChameleonKeycloakAuthenticator
 
 # This is set by the Chameleon user portal
 LOGIN_FLOW_COOKIE_NAME = 'new_login_experience'
+FORCE_OLD_LOGIN_FLOW_PARAM = 'old_login_experience'
 
 
 class DetectLoginMethodHandler(BaseHandler):
@@ -159,4 +160,5 @@ class ChameleonAuthenticator(Authenticator):
 
 
 def wants_oidc_login(handler):
-    return handler.get_cookie(LOGIN_FLOW_COOKIE_NAME) == '1'
+    return (handler.get_cookie(LOGIN_FLOW_COOKIE_NAME) == '1' and
+            handler.get_argument(FORCE_OLD_LOGIN_FLOW_PARAM, None) != '1')
