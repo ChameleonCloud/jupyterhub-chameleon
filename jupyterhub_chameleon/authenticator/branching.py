@@ -18,6 +18,8 @@ from .keycloak import ChameleonKeycloakAuthenticator
 LOGIN_FLOW_COOKIE_NAME = 'new_login_experience'
 FORCE_OLD_LOGIN_FLOW_PARAM = 'old_login_experience'
 
+DETECT_LOGIN_ENDPOINT = 'login-start'
+
 
 class DetectLoginMethodHandler(BaseHandler):
     def get(self):
@@ -131,11 +133,11 @@ class ChameleonAuthenticator(Authenticator):
     def login_url(self, base_url):
         """Override login_url with a custom handler that picks the flow.
         """
-        return url_path_join(base_url, 'login-start')
+        return url_path_join(base_url, DETECT_LOGIN_ENDPOINT)
 
     def get_handlers(self, app):
         handlers = [
-            ('/login-start', DetectLoginMethodHandler),
+            (f'/{DETECT_LOGIN_ENDPOINT}', DetectLoginMethodHandler),
             ('/login-form', LoginFormHandler),
         ]
         handlers.extend(self.keystone_auth.get_handlers(app))
