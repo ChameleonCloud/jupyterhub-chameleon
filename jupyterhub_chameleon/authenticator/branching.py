@@ -117,10 +117,16 @@ class ChameleonAuthenticator(Authenticator):
         self.oidc_auth.enable_auth_state = self.enable_auth_state
 
     async def authenticate(self, handler, data):
-        if wants_oidc_login(handler):
-            return await self.oidc_auth.authenticate(handler, data)
-        else:
+        """Authenticate the user either with OIDC or username/password.
+
+        It is possible to be in the rollout case for OIDC but still be able
+        to fill out and submit the form (bypassing the OIDC auto-login.)
+        Therefore we inspect the auth payload to see what kind of login it is.
+        """
+        if 'password' in data:
             return await self.keystone_auth.authenticate(handler, data)
+        else:
+            return await self.oidc_auth.authenticate(handler, data)
 
     def get_callback_url(self, handler=None):
         """Shim the get_callback_url function required for OAuthenticator.
