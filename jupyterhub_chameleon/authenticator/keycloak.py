@@ -144,6 +144,18 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             'profile',
         ]
 
+    @property
+    def keycloak_realm_url(self):
+        return f'{self.keycloak_url}/auth/realms/{self.keycloak_realm_name}'
+
+    @property
+    def logout_redirect_url(self):
+        params = {
+            'client_id': self.client_id,
+            'redirect_uri': f'{self.keycloak_realm_url}/post-logout',
+        }
+        return f'{self.keycloak_realm_url}/protocol/openid-connect/logout?{urlencode(params)}'
+
     async def authenticate(self, handler, data=None):
         """Authenticate with Keycloak.
         """
@@ -192,6 +204,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             'name': username,
             'admin': False,
             'auth_state': {
+                'is_federated': True,
                 'access_token': access_token,
                 'refresh_token': refresh_token,
                 OPENSTACK_RC_AUTH_STATE_KEY: openstack_rc,

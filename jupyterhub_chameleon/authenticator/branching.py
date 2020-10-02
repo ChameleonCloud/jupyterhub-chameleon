@@ -5,6 +5,7 @@ from urllib.parse import urlencode, parse_qsl
 
 from jupyterhub.auth import Authenticator, LoginHandler
 from jupyterhub.handlers import BaseHandler
+from jupyterhub.handlers.login import LogoutHandler
 from jupyterhub.utils import url_path_join
 from keystoneauthenticator import KeystoneAuthenticator
 from tornado import gen
@@ -19,6 +20,7 @@ LOGIN_FLOW_COOKIE_NAME = 'new_login_experience'
 FORCE_OLD_LOGIN_FLOW_PARAM = 'old_login_experience'
 
 DETECT_LOGIN_ENDPOINT = 'login-start'
+LOGOUT_REDIRECT_ENDPOINT = 'logout-redirect'
 
 
 class DetectLoginMethodHandler(BaseHandler):
@@ -44,6 +46,20 @@ class LoginFormHandler(LoginHandler):
         """
         username = self.get_argument('username', default='')
         self.finish(self._render(username=username))
+
+
+class LogoutRedirectHandler(LogoutHandler):
+    async def get(self):
+        is_federated = False
+        if self.current_user:
+            auth_state = await self.current_user.get_auth_state()
+            is_federated = auth_state.get('is_federated', False)
+
+        await self.default_handle_logout()
+        if is_federated:
+            return self.redirect(
+                self.authenticator.oidc_auth.logout_redirect_url)
+        await self.render_logout_page()
 
 
 class ChameleonAuthenticator(Authenticator):
@@ -141,10 +157,20 @@ class ChameleonAuthenticator(Authenticator):
         """
         return url_path_join(base_url, DETECT_LOGIN_ENDPOINT)
 
+    def logout_url(self, base_url):
+        """Override logout_url with a custom handler that maybe redirects.
+        """
+        return url_path_join(base_url, LOGOUT_REDIRECT_ENDPOINT)
+
     def get_handlers(self, app):
         handlers = [
             (f'/{DETECT_LOGIN_ENDPOINT}', DetectLoginMethodHandler),
             ('/login-form', LoginFormHandler),
+            # Override the /logout handler; because our handlers are installed
+            # first, and the first match wins, our logout handler is preferred,
+            # which is good, because JupyterLab can only invoke this handler
+            # when the user wants to log out, currently.
+            ('/logout', LogoutRedirectHandler),
         ]
         handlers.extend(self.keystone_auth.get_handlers(app))
         handlers.extend(self.oidc_auth.get_handlers(app))
