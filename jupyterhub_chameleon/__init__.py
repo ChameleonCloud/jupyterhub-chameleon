@@ -7,9 +7,10 @@ from .handler import ForcePasswordLoginHandler
 from .handler import UserRedirectExperimentHandler
 
 origin = '*'
-server_idle_timeout = 60 * 60 * 24
-server_max_age = 60 * 60 * 24 * 7
-kernel_idle_timeout = 60 * 60 * 2
+# Terminate servers after 3 days of idleness
+server_idle_timeout = 60 * 60 * 24 * 3
+# Terminate kernells after 1 day of idleness
+kernel_idle_timeout = 60 * 60 * 24
 debug = os.getenv('DEBUG', '').strip().lower() in ['1', 'true', 'yes']
 
 
@@ -55,7 +56,6 @@ def _configure_services(c):
                 sys.executable,
                 '-m', 'jupyterhub_chameleon.service.cull_idle_servers',
                 '--timeout={}'.format(server_idle_timeout),
-                '--max_age={}'.format(server_max_age),
                 '--cull_every={}'.format(60 * 15),
             ],
         },
