@@ -166,6 +166,7 @@ class ChameleonAuthenticator(Authenticator):
         handlers = [
             (f'/{DETECT_LOGIN_ENDPOINT}', DetectLoginMethodHandler),
             ('/login-form', LoginFormHandler),
+            (f'/{LOGOUT_REDIRECT_ENDPOINT}', LogoutRedirectHandler),
             # Override the /logout handler; because our handlers are installed
             # first, and the first match wins, our logout handler is preferred,
             # which is good, because JupyterLab can only invoke this handler
