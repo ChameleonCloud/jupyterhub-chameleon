@@ -44,6 +44,23 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     client_id_env = 'KEYCLOAK_CLIENT_ID'
     client_secret_env = 'KEYCLOAK_CLIENT_SECRET'
 
+    keycloak_groups_claim = Unicode(
+        os.getenv('KEYCLOAK_GROUPS_CLAIM', 'project_names'),
+        config=True,
+        help="""
+        User info claim that contains the list of groups the user is in.
+        """
+    )
+
+    keycloak_admin_group = Unicode(
+        os.getenv('KEYCLOAK_ADMIN_GROUP', 'Chameleon'),
+        config=True,
+        help="""
+        The group representing system admins. Any user belonging to this group
+        will be granted the admin status in JupyterHub.
+        """
+    )
+
     keycloak_url = Unicode(
         os.getenv('KEYCLOAK_SERVER_URL', 'https://auth.chameleoncloud.org'),
         config=True,
@@ -178,7 +195,9 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         user_resp = await http_client.fetch(req)
         user_json = json.loads(user_resp.body.decode('utf8', 'replace'))
         username = user_json.get('preferred_username').split('@', 1)[0]
-        # Can also get groups here (check for Chameleon group)
+        is_admin = (
+            self.keycloak_admin_group
+            in user_json.get(self.keycloak_groups_claim, []))
 
         access_token = token_json['access_token']
         refresh_token = token_json['refresh_token']
@@ -202,7 +221,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
 
         return {
             'name': username,
-            'admin': False,
+            'admin': is_admin,
             'auth_state': {
                 'is_federated': True,
                 'access_token': access_token,
