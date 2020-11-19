@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import time
 from urllib.parse import parse_qsl, urlencode
 import uuid
 
@@ -64,21 +65,23 @@ class AccessTokenMixin:
         if refresh_token:
             new_tokens = await self._fetch_new_token(refresh_token)
             access_token = new_tokens.get('access_token')
+            expires_at = time.time() + int(new_tokens.get('expires_in', 0))
             if access_token:
                 auth_state['access_token'] = access_token
                 auth_state['refresh_token'] = new_tokens['refresh_token']
+                auth_state['expires_at'] = expires_at
                 auth_state[OPENSTACK_RC_AUTH_STATE_KEY].update({
                     'OS_ACCESS_TOKEN': access_token,
                 })
                 await self.current_user.save_auth_state(auth_state)
                 self.log.info(
                     f'Refreshed access token for user {self.current_user}')
-            return access_token
+            return access_token, expires_at
         else:
             self.log.info((
                 f'Cannot refresh access_token for user {self.current_user}, no '
                 'refresh_token found.'))
-            return None
+            return None, None
 
     async def _fetch_new_token(self, refresh_token):
         client_id = os.environ['KEYCLOAK_CLIENT_ID']
@@ -111,9 +114,9 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
         if not self.current_user:
             raise HTTPError(401, 'Authentication with API token required')
 
-        access_token = await self.refresh_token()
+        access_token, expires_at = await self.refresh_token()
         if access_token:
-            response = dict(access_token=access_token)
+            response = dict(access_token=access_token, expires_at=expires_at)
         else:
             response = dict(error='Unable to retrieve access token')
         self.write(json.dumps(response))
@@ -149,9 +152,7 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
             os.environ.get('ARTIFACT_SHARING_TRUST_PROJECT_NAME', 'trovi'))
 
         try:
-            user_token = user_session.get_token()
             trustee_user_id = user_session.get_user_id()
-            admin_token = admin_session.get_token()
             trustor_user_id = admin_session.get_user_id()
             trust_project = next(iter(
                 admin_ks_client.projects.list(name=trust_project_name)), None)
