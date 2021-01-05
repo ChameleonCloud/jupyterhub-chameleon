@@ -10,7 +10,8 @@ from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
 from keystoneclient.v3.client import Client as KeystoneClient
 from tornado.web import HTTPError, authenticated
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError as HTTPClientError
+from tornado.curl_httpclient import CurlError
 
 from .authenticator.branching import FORCE_OLD_LOGIN_FLOW_PARAM, DETECT_LOGIN_ENDPOINT
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
@@ -63,7 +64,22 @@ class AccessTokenMixin:
         refresh_token = auth_state.get('refresh_token')
 
         if refresh_token:
-            new_tokens = await self._fetch_new_token(refresh_token)
+            try:
+                new_tokens = await self._fetch_new_token(refresh_token)
+            # When using the curl_httpclient, CurlErrors are raised, which
+            # don't have a meaningful ``code``, but does have a curl error
+            # number, which can indidate what really went wrong.
+            except CurlError as curl_err:
+                self.log.error((
+                    f'Error refreshing token for user {self.current_user}: '
+                    f'curl error {curl_err.errno}'))
+                return None, None
+            except HTTPClientError as http_err:
+                self.log.error((
+                    f'Error refreshing token for user {self.current_user}: '
+                    f'HTTP error {http_err.code}'
+                ))
+                return None, None
             access_token = new_tokens.get('access_token')
             expires_at = time.time() + int(new_tokens.get('expires_in', 0))
             if access_token:
