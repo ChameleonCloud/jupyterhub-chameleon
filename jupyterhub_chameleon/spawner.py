@@ -1,5 +1,4 @@
 import os
-from urllib.parse import parse_qsl
 
 from dockerspawner import DockerSpawner
 from traitlets import default, Bool, Dict, Unicode
@@ -52,10 +51,12 @@ class ChameleonSpawner(DockerSpawner):
 
     @property
     def volumes(self):
-        return {
-            self.name_template: self._gen_volume_config(self.work_dir),
-            **self.extra_volumes
-        }
+        vols = {}
+        artifact = self.get_artifact()
+        if not (artifact and artifact.ephemeral):
+            vols[self.name_template] = self._gen_volume_config(self.work_dir)
+        vols.update(self.extra_volumes)
+        return vols
 
     @default('environment')
     def _environment(self):
@@ -116,21 +117,26 @@ class ChameleonSpawner(DockerSpawner):
         extra_env['OS_KEYPAIR_PUBLIC_KEY'] = f'{self.work_dir}/.ssh/id_rsa.pub'
 
         # Add parameters for experiment import
-        if self.handler:
-            artifact = Artifact.from_query(self.handler.request.query)
-            if artifact:
-                deposition_url = artifact.deposition_url()
-                extra_env['ARTIFACT_DEPOSITION_URL'] = deposition_url
-                extra_env['ARTIFACT_DEPOSITION_REPO'] = artifact.deposition_repo
-                extra_env['ARTIFACT_ID'] = artifact.id
-                extra_env['ARTIFACT_OWNERSHIP'] = artifact.ownership
-                self.log.info(
-                    f'User {self.user.name} importing from '
-                    f'{artifact.deposition_repo}: {deposition_url}')
+        artifact = self.get_artifact()
+        if artifact:
+            deposition_url = artifact.deposition_url()
+            extra_env['ARTIFACT_DEPOSITION_URL'] = deposition_url
+            extra_env['ARTIFACT_DEPOSITION_REPO'] = artifact.deposition_repo
+            extra_env['ARTIFACT_ID'] = artifact.id
+            extra_env['ARTIFACT_OWNERSHIP'] = artifact.ownership
+            self.log.info(
+                f'User {self.user.name} importing from '
+                f'{artifact.deposition_repo}: {deposition_url}')
 
         env.update(extra_env)
 
         return env
+
+    def get_artifact(self) -> Artifact:
+        if self.handler:
+            return Artifact.from_query(self.handler.request.query)
+        else:
+            return None
 
     def _gen_volume_config(self, target):
         return dict(

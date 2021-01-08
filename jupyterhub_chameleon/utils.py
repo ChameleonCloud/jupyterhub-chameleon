@@ -21,13 +21,18 @@ class Artifact:
             deposition. Default = None.
         ownership (str): the requesting user's ownership status of this
             artifact. Default = "fork".
+        ephemeral (bool): whether the artifact's working environment should
+            be considered temporary. This can indicate that, e.g., nothing
+            from the working directory should be saved when the spawned
+            environment is torn down. Default = False.
     """
     def __init__(self, deposition_repo=None, deposition_id=None, id=None,
-                 ownership='fork'):
+                 ownership='fork', ephemeral=None):
         self.id = id
         self.deposition_repo = deposition_repo
         self.deposition_id = deposition_id
         self.ownership = ownership
+        self.ephemeral = ephemeral in [True, 'True', 'true', 'yes', '1']
 
         # Only the deposition information is required. Theoretically this can
         # allow importing arbitrary Zenodo DOIs or from other sources that are
