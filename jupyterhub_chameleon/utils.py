@@ -1,5 +1,4 @@
 import argparse
-from collections import namedtuple
 import hashlib
 import hmac
 import os
@@ -9,7 +8,6 @@ from urllib.parse import parse_qsl
 
 from keystoneauth1 import loading
 from keystoneauth1.session import Session
-from keystoneclient.v3 import client
 
 
 class Artifact:
@@ -50,7 +48,7 @@ class Artifact:
 
         try:
             return cls(**query)
-        except:
+        except Exception:
             return None
 
     @staticmethod
@@ -66,6 +64,10 @@ class Artifact:
         ).hexdigest()
 
         return f'{origin}{path}?temp_url_sig={sig}&temp_url_expires={expires}'
+
+    @staticmethod
+    def http_url_factory(deposition_id: str) -> str:
+        return deposition_id
 
     @staticmethod
     def zenodo_url_factory(deposition_id: str) -> str:
@@ -126,7 +128,7 @@ def artifact_sharing_keystone_session():
     return keystone_session(env_overrides=artifact_sharing_overrides)
 
 
-def _swift_url_parts(deposition_id: str) -> str:
+def _swift_url_parts(deposition_id: str) -> 'tuple[str,str]':
     session = artifact_sharing_keystone_session()
     project_id = os.environ.get(
         'ARTIFACT_SHARING_SWIFT_ACCOUNT', session.get_project_id())
