@@ -60,6 +60,8 @@ class UserRedirectExperimentHandler(BaseHandler):
 
 class AccessTokenMixin:
     async def refresh_token(self):
+        username = self.current_user.name
+
         auth_state = await self.current_user.get_auth_state()
         refresh_token = auth_state.get('refresh_token')
 
@@ -71,13 +73,13 @@ class AccessTokenMixin:
             # number, which can indidate what really went wrong.
             except CurlError as curl_err:
                 self.log.error((
-                    f'Error refreshing token for user {self.current_user}: '
-                    f'curl error {curl_err.errno}'))
+                    f'Error refreshing token for user {username}: '
+                    f'curl error {curl_err.errno}: {curl_err.message}'))
                 return None, None
             except HTTPClientError as http_err:
                 self.log.error((
-                    f'Error refreshing token for user {self.current_user}: '
-                    f'HTTP error {http_err.code}'
+                    f'Error refreshing token for user {username}: '
+                    f'HTTP error {http_err.code}: {http_err.message}'
                 ))
                 return None, None
             access_token = new_tokens.get('access_token')
@@ -91,11 +93,11 @@ class AccessTokenMixin:
                 })
                 await self.current_user.save_auth_state(auth_state)
                 self.log.info(
-                    f'Refreshed access token for user {self.current_user}')
+                    f'Refreshed access token for user {username}')
             return access_token, expires_at
         else:
             self.log.info((
-                f'Cannot refresh access_token for user {self.current_user}, no '
+                f'Cannot refresh access_token for user {username}, no '
                 'refresh_token found.'))
             return None, None
 
