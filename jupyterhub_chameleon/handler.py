@@ -59,6 +59,8 @@ class UserRedirectExperimentHandler(BaseHandler):
 
 
 class AccessTokenMixin:
+    TOKEN_EXPIRY_REFRESH_THRESHOLD = 120  # seconds
+
     async def refresh_token(self):
         username = self.current_user.name
 
@@ -66,6 +68,14 @@ class AccessTokenMixin:
         refresh_token = auth_state.get('refresh_token')
 
         if refresh_token:
+            now = time.time()
+
+            valid_until = auth_state.get('expires_at')
+            assert valid_until is not None
+
+            if (valid_until - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
+                return auth_state['access_token'], valid_until
+
             try:
                 new_tokens = await self._fetch_new_token(refresh_token)
             # When using the curl_httpclient, CurlErrors are raised, which
@@ -81,9 +91,11 @@ class AccessTokenMixin:
                     f'Error refreshing token for user {username}: '
                     f'HTTP error {http_err.code}: {http_err.message}'
                 ))
+                self.log.debug(
+                    f'response={http_err.response.body.decode("utf-8")}')
                 return None, None
             access_token = new_tokens.get('access_token')
-            expires_at = time.time() + int(new_tokens.get('expires_in', 0))
+            expires_at = now + int(new_tokens.get('expires_in', 0))
             if access_token:
                 auth_state['access_token'] = access_token
                 auth_state['refresh_token'] = new_tokens['refresh_token']
