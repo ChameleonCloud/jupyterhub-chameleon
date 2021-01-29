@@ -199,6 +199,12 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             self.keycloak_admin_group
             in user_json.get(self.keycloak_groups_claim, []))
 
+        has_active_allocations = len(user_json.get('projects', [])) > 0
+        if not has_active_allocations:
+            self.log.info(
+                f'User {username} does not have any active allocations')
+            return None
+
         access_token = token_json['access_token']
         refresh_token = token_json['refresh_token']
 
