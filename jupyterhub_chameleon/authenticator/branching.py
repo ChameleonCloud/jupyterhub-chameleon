@@ -49,17 +49,11 @@ class LoginFormHandler(LoginHandler):
 
 
 class LogoutRedirectHandler(LogoutHandler):
+    """Perform a local logout and then redirect to IdP logout.
+    """
     async def get(self):
-        is_federated = False
-        if self.current_user:
-            auth_state = await self.current_user.get_auth_state()
-            is_federated = auth_state.get('is_federated', False)
-
         await self.default_handle_logout()
-        if is_federated:
-            return self.redirect(
-                self.authenticator.oidc_auth.logout_redirect_url)
-        await self.render_logout_page()
+        return self.redirect(self.authenticator.oidc_auth.logout_redirect_url)
 
 
 class ChameleonAuthenticator(Authenticator):
