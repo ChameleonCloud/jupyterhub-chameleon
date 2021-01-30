@@ -65,6 +65,12 @@ class AccessTokenMixin:
         username = self.current_user.name
 
         auth_state = await self.current_user.get_auth_state()
+        if not auth_state:
+            self.log.warn((
+                f'Cannot refresh token because no auth_state for {username} '
+                'exists.'))
+            return None, None
+
         refresh_token = auth_state.get('refresh_token')
 
         if refresh_token:
