@@ -2,6 +2,7 @@ import os
 
 from dockerspawner import DockerSpawner
 from traitlets import default, Bool, Dict, Unicode
+
 from .utils import Artifact
 
 class ChameleonSpawner(DockerSpawner):

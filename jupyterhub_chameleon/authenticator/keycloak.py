@@ -1,34 +1,23 @@
 import base64
 import json
 import os
+import time
 from urllib.parse import urlencode
 
-from oauthenticator.oauth2 import OAuthenticator, OAuthLoginHandler, OAuthCallbackHandler
-from tornado.httpclient import HTTPRequest, AsyncHTTPClient
-from traitlets import default, Unicode
+from jupyterhub.handlers.login import LogoutHandler
+from oauthenticator.oauth2 import OAuthenticator
+from tornado.httpclient import HTTPClientError, HTTPRequest, AsyncHTTPClient
+from traitlets import default, Bool, Int, Unicode
 
 from .config import OPENSTACK_RC_AUTH_STATE_KEY
 
 
-class ForceOAuthUsageMixin:
-    @property
-    def authenticator(self):
-        """When inside an OAuth login handler, force using the OAuthenticator.
-
-        This is necessary because the handlers reference the Authenticator
-        instance configured to JupyterHub, which will be the wrapper
-        authencitator, which does not have much of the API required by the
-        OAuthenticator handlers.
-        """
-        return self.settings.get('authenticator').oidc_auth
-
-
-class ChameleonOAuthCallbackHandler(ForceOAuthUsageMixin, OAuthCallbackHandler):
-    pass
-
-
-class ChameleonOAuthLoginHandler(ForceOAuthUsageMixin, OAuthLoginHandler):
-    pass
+class LogoutRedirectHandler(LogoutHandler):
+    """Perform a local logout and then redirect to IdP logout.
+    """
+    async def get(self):
+        await self.default_handle_logout()
+        return self.redirect(self.authenticator.logout_redirect_url)
 
 
 class ChameleonKeycloakAuthenticator(OAuthenticator):
@@ -38,8 +27,26 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
 
     login_service = 'Chameleon'
 
-    login_handler = ChameleonOAuthLoginHandler
-    callback_handler = ChameleonOAuthCallbackHandler
+    # Force auto_login so that we don't render the default login form.
+    auto_login = Bool(True)
+
+    # The user's Keystone/Keycloak tokens are stored in auth_state and the
+    # authenticator is not very useful without it.
+    enable_auth_state = Bool(True)
+
+    # Check state of authentication token before allowing a new spawn.
+    # The Keystone authenticator will fail if the user's unscoped token has
+    # expired, forcing them to log in, which is the right thing.
+    refresh_pre_spawn = Bool(True)
+
+    # Automatically check the auth state this often.
+    # This isn't very useful for us, since we can't really do anything if
+    # the token has expired realistically (can we?), so we increase the poll
+    # interval just to reduce things the authenticator has to do.
+    # TODO(jason): we could potentially use the auth refresh mechanism to
+    # generate a refresh auth token from Keycloak (and then exchange it for
+    # a new Keystone token.)
+    auth_refresh_age = Int(60 * 60)
 
     client_id_env = 'KEYCLOAK_CLIENT_ID'
     client_secret_env = 'KEYCLOAK_CLIENT_SECRET'
@@ -136,6 +143,18 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         """
     )
 
+    hub_public_url = Unicode(
+        os.getenv('JUPYTERHUB_PUBLIC_URL'),
+        config=True,
+        help="""
+        The full (public) base URL of the JupyterHub
+        server. JupyterHub should really provide this to
+        managed services, but it doesn't, so we have to. The
+        issue is that we are behind a reverse proxy, so we need
+        to inform JupyterHub of this.
+        """
+    )
+
     def _keycloak_openid_endpoint(self, name):
         realm = self.keycloak_realm_name
         return os.path.join(
@@ -183,16 +202,34 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             grant_type='authorization_code',
         )
         req = HTTPRequest(self.token_url, method='POST',
-            headers=self.get_client_credential_headers(),
+            headers=self._get_client_credential_headers(),
             body=urlencode(params))
-        token_response = await http_client.fetch(req)
-        token_json = json.loads(token_response.body.decode('utf8', 'replace'))
+        try:
+            token_response = await http_client.fetch(req)
+        except HTTPClientError as err:
+            if err.code == 401:
+                self.log.info((
+                    "OIDC login failed due to invalid credentials. This could "
+                    "be due to an invalid client secret_key configured."))
+            else:
+                self.log.error(
+                    f"Unexpected HTTP error authenticating user: {err}")
+            return None
 
-        user_headers = self.get_default_headers()
-        user_headers['Authorization'] = (
-            'Bearer {}'.format(token_json['access_token']))
+        token_json = json.loads(token_response.body.decode('utf8', 'replace'))
+        access_token = token_json['access_token']
+        refresh_token = token_json['refresh_token']
+        expires_at = time.time() + int(token_json.get('expires_in', 0))
+
+        user_headers = self._get_default_headers()
+        user_headers['Authorization'] = 'Bearer {}'.format(access_token)
         req = HTTPRequest(self.userdata_url, method='GET', headers=user_headers)
-        user_resp = await http_client.fetch(req)
+        try:
+            user_resp = await http_client.fetch(req)
+        except HTTPClientError as err:
+            self.log.error(f"Unexpected HTTP error fetching user data: {err}")
+            return None
+
         user_json = json.loads(user_resp.body.decode('utf8', 'replace'))
         username = user_json.get('preferred_username').split('@', 1)[0]
         is_admin = (
@@ -204,9 +241,6 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             self.log.info(
                 f'User {username} does not have any active allocations')
             return None
-
-        access_token = token_json['access_token']
-        refresh_token = token_json['refresh_token']
 
         if self._has_keystone_config():
             openstack_rc = {
@@ -223,6 +257,9 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
                 openstack_rc['OS_REGION_NAME'] = (
                     self.keystone_default_region_name)
         else:
+            self.log.warning((
+                'No Keystone configuration available, cannot set OpenStack '
+                'RC variables'))
             openstack_rc = None
 
         return {
@@ -232,9 +269,40 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
                 'is_federated': True,
                 'access_token': access_token,
                 'refresh_token': refresh_token,
+                'expires_at': expires_at,
                 OPENSTACK_RC_AUTH_STATE_KEY: openstack_rc,
             },
         }
+
+    async def pre_spawn_start(self, user, spawner):
+        """Fill in OpenRC environment variables from user auth state.
+        """
+        auth_state = await user.get_auth_state()
+        if not auth_state:
+            # auth_state not enabled
+            self.log.error(
+                'auth_state is not enabled! Cannot set OpenStack RC parameters')
+            return
+
+        openrc_vars = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
+        for rc_key, rc_value in openrc_vars.items():
+            spawner.environment[rc_key] = rc_value
+
+        if self.hub_public_url:
+            spawner.environment['JUPYTERHUB_PUBLIC_URL'] = self.hub_public_url
+
+    def get_handlers(self, app):
+        """Override the default handlers to include a custom logout handler.
+        """
+        # Override the /logout handler; because our handlers are installed
+        # first, and the first match wins, our logout handler is preferred,
+        # which is good, because JupyterLab can only invoke this handler
+        # when the user wants to log out, currently.
+        handlers = [
+            ('/logout', LogoutRedirectHandler),
+        ]
+        handlers.extend(super().get_handlers(app))
+        return handlers
 
     def _has_keystone_config(self):
         return (
@@ -243,14 +311,14 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             self.keystone_protocol
         )
 
-    def get_default_headers(self):
+    def _get_default_headers(self):
         return {
             'Accept': 'application/json',
             'User-Agent': 'JupyterHub',
         }
 
-    def get_client_credential_headers(self):
-        headers = self.get_default_headers()
+    def _get_client_credential_headers(self):
+        headers = self._get_default_headers()
         b64key = base64.b64encode(
             bytes('{}:{}'.format(
                 self.client_id, self.client_secret), 'utf8'))

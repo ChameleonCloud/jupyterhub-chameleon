@@ -13,7 +13,6 @@ from tornado.web import HTTPError, authenticated
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError as HTTPClientError
 from tornado.curl_httpclient import CurlError
 
-from .authenticator.branching import FORCE_OLD_LOGIN_FLOW_PARAM, DETECT_LOGIN_ENDPOINT
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
 from .utils import Artifact, keystone_session, upload_url
 
@@ -76,11 +75,11 @@ class AccessTokenMixin:
         if refresh_token:
             now = time.time()
 
-            valid_until = auth_state.get('expires_at')
-            assert valid_until is not None
+            expires_at = auth_state.get('expires_at')
+            assert expires_at is not None
 
-            if (valid_until - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
-                return auth_state['access_token'], valid_until
+            if (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
+                return auth_state['access_token'], expires_at
 
             try:
                 new_tokens = await self._fetch_new_token(refresh_token)
@@ -234,15 +233,3 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
             response = dict(error='Could not prepare upload')
 
         self.write(json.dumps(response))
-
-
-class ForcePasswordLoginHandler(BaseHandler):
-    """Redirect user to login with a flag forcing the password flow.
-    """
-    def get(self):
-        # Go directly to the custom login detection page; if we go to /login,
-        # the page will not pass on GET parameters to our custom login endpoint.
-        login_url = f'/hub/{DETECT_LOGIN_ENDPOINT}'
-        query_args = self.request.query_arguments
-        query_args[FORCE_OLD_LOGIN_FLOW_PARAM] = '1'
-        self.redirect(f'{login_url}?{urlencode(query_args)}')
