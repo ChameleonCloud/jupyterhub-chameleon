@@ -8,7 +8,7 @@ from .handler import UserRedirectExperimentHandler
 origin = '*'
 # Terminate servers after 3 days of idleness
 server_idle_timeout = 60 * 60 * 24 * 3
-# Terminate kernells after 1 day of idleness
+# Terminate kernels after 1 day of idleness
 kernel_idle_timeout = 60 * 60 * 24
 debug = os.getenv('DEBUG', '').strip().lower() in ['1', 'true', 'yes']
 
@@ -26,9 +26,9 @@ def install_extension(config):
     # Enable restarting of Hub without affecting singleuser servers
     c.JupyterHub.cleanup_servers = False
     c.JupyterHub.cleanup_proxy = False
-    # Keycloak SSO sessions only last 1 day; the Jupyter session length needs
-    # to match to avoid ...
-    c.JupyterHub.cookie_max_age_days = 1
+    # Keycloak SSO sessions only last 30 days; the Jupyter session length needs
+    # to match to avoid allowing to be logged in tof roo long.
+    c.JupyterHub.cookie_max_age_days = 30
 
     c.JupyterHub.extra_handlers = [
         (r'/import', UserRedirectExperimentHandler),
