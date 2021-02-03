@@ -36,6 +36,10 @@ def install_extension(config):
         (r'/api/share/prepare_upload', ArtifactPublishPrepareUploadHandler),
     ]
 
+    c.JupyterHub.template_paths = [
+        os.path.join(_data_files_path(), 'templates'),
+    ]
+
     _configure_authenticator(c)
     _configure_services(c)
     _configure_spawner(c)
@@ -75,6 +79,15 @@ def _configure_spawner(c):
     ])
     if debug:
         c.ChameleonSpawner.remove = False
+
+
+def _data_files_path():
+    path = os.path.abspath(os.path.dirname(__file__))
+    while path != '/':
+        data_files_path = os.path.join(path, 'share', 'jupyterhub_chameleon')
+        if os.path.exists(data_files_path):
+            return data_files_path
+        path, _ = os.path.split(path)
 
 
 __all__ = ['install_extension']

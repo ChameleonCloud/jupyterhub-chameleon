@@ -13,11 +13,30 @@ from .config import OPENSTACK_RC_AUTH_STATE_KEY
 
 
 class LogoutRedirectHandler(LogoutHandler):
-    """Perform a local logout and then redirect to IdP logout.
+    """Redirect user to IdP logout page to clean upstream session.
     """
-    async def get(self):
-        await self.default_handle_logout()
-        return self.redirect(self.authenticator.logout_redirect_url)
+    async def render_logout_page(self):
+        self.redirect(self.authenticator.logout_redirect_url, permanent=False)
+
+
+class SessionRefreshHandler(LogoutHandler):
+    """Redirect user back to internal page after clearing their session.
+
+    This allows an effective "refresh" flow, where if the user is already
+    logged in to the IdP, they can proceed directly back to where they were
+    before, but with a refreshed session.
+    """
+    async def render_logout_page(self):
+        next_page = self.get_argument("next", "/")
+        if not next_page.startswith("/"):
+            self.log.warning(
+                f"Redirect to non-relative location {next_page} blocked.")
+            next_page = "/"
+
+        html = await self.render_template(
+            'auth_refresh.html', next_page=next_page)
+        self.finish(html)
+
 
 
 class ChameleonKeycloakAuthenticator(OAuthenticator):
@@ -300,6 +319,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         # when the user wants to log out, currently.
         handlers = [
             ('/logout', LogoutRedirectHandler),
+            ('/auth/refresh', SessionRefreshHandler),
         ]
         handlers.extend(super().get_handlers(app))
         return handlers

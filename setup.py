@@ -1,3 +1,4 @@
+from glob import glob
 from setuptools import find_packages, setup
 
 setup(
@@ -27,4 +28,7 @@ setup(
             'chameleon = jupyterhub_chameleon.spawner:ChameleonSpawner',
         ],
     },
+    data_files=[
+        ('etc/jupyterhub/templates', glob('templates/*.html')),
+    ],
 )
