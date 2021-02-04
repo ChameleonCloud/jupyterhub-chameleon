@@ -76,9 +76,9 @@ class AccessTokenMixin:
             now = time.time()
 
             expires_at = auth_state.get('expires_at')
-            assert expires_at is not None
 
-            if (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
+            if (expires_at is not None and
+                (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD):
                 return auth_state['access_token'], expires_at
 
             try:
