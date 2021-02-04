@@ -29,6 +29,6 @@ setup(
         ],
     },
     data_files=[
-        ('etc/jupyterhub/templates', glob('templates/*.html')),
+        ('share/jupyterhub_chameleon/templates', glob('templates/*.html')),
     ],
 )
