@@ -70,15 +70,20 @@ class UserRedirectExperimentHandler(BaseHandler):
 class AccessTokenMixin:
     TOKEN_EXPIRY_REFRESH_THRESHOLD = 120  # seconds
 
-    async def refresh_token(self):
+    async def refresh_token(self, source=None):
         username = self.current_user.name
+
+        def _with_source(msg):
+            return f"({source}) {msg}"
 
         auth_state = await self.current_user.get_auth_state()
         if not auth_state:
             self.log.warn(
-                (
-                    f"Cannot refresh token because no auth_state for {username} "
-                    "exists."
+                _with_source(
+                    (
+                        "Cannot refresh token because no auth_state "
+                        f"for {username} exists."
+                    )
                 )
             )
             return None, None
@@ -103,17 +108,21 @@ class AccessTokenMixin:
             # number, which can indidate what really went wrong.
             except CurlError as curl_err:
                 self.log.error(
-                    (
-                        f"Error refreshing token for user {username}: "
-                        f"curl error {curl_err.errno}: {curl_err.message}"
+                    _with_source(
+                        (
+                            f"Error refreshing token for user {username}: "
+                            f"curl error {curl_err.errno}: {curl_err.message}"
+                        )
                     )
                 )
                 return None, None
             except HTTPClientError as http_err:
                 self.log.error(
-                    (
-                        f"Error refreshing token for user {username}: "
-                        f"HTTP error {http_err.code}: {http_err.message}"
+                    _with_source(
+                        (
+                            f"Error refreshing token for user {username}: "
+                            f"HTTP error {http_err.code}: {http_err.message}"
+                        )
                     )
                 )
                 self.log.debug(f'response={http_err.response.body.decode("utf-8")}')
@@ -130,13 +139,17 @@ class AccessTokenMixin:
                     }
                 )
                 await self.current_user.save_auth_state(auth_state)
-                self.log.info(f"Refreshed access token for user {username}")
+                self.log.info(
+                    _with_source(f"Refreshed access token for user {username}")
+                )
             return access_token, expires_at
         else:
             self.log.info(
-                (
-                    f"Cannot refresh access_token for user {username}, no "
-                    "refresh_token found."
+                _with_source(
+                    (
+                        f"Cannot refresh access_token for user {username}, no "
+                        "refresh_token found."
+                    )
                 )
             )
             return None, None
@@ -158,7 +171,7 @@ class AccessTokenMixin:
         )
         body = urlencode(params)
         req = HTTPRequest(token_url, "POST", body=body)
-        self.log.debug(f'URL: {token_url} body: {body.replace(client_secret, "***")}')
+        self.log.debug(f'url={token_url} body={body.replace(client_secret, "***")}')
 
         client = AsyncHTTPClient()
         resp = await client.fetch(req)
@@ -172,7 +185,13 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
         if not self.current_user:
             raise HTTPError(401, "Authentication with API token required")
 
-        access_token, expires_at = await self.refresh_token()
+        if self.request.query:
+            query = dict(parse_qsl(self.request.query))
+            source = query.get("source", "unknown")
+        else:
+            source = "unknown"
+
+        access_token, expires_at = await self.refresh_token(source=source)
         if access_token:
             response = dict(access_token=access_token, expires_at=expires_at)
         else:
@@ -187,7 +206,7 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
 
         # For federated logins, Keystone authentication relies on short-lived
         # tokens from the IdP; ensure we have a fresh one stored for the user.
-        await self.refresh_token()
+        await self.refresh_token(source="artifact_publish_prepare")
 
         auth_state = await self.current_user.get_auth_state()
         openstack_rc = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
