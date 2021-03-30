@@ -78,7 +78,7 @@ class AccessTokenMixin:
 
         auth_state = await self.current_user.get_auth_state()
         if not auth_state:
-            self.log.warn(
+            self.log.debug(
                 _with_source(
                     (
                         "Cannot refresh token because no auth_state "
@@ -95,11 +95,12 @@ class AccessTokenMixin:
 
             expires_at = auth_state.get("expires_at")
 
-            if (
-                expires_at is not None
-                and (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD
-            ):
-                return auth_state["access_token"], expires_at
+            if expires_at is not None:
+                if (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
+                    return auth_state["access_token"], expires_at
+                elif expires_at < now:
+                    # We have no hope of refreshing the session, give up now.
+                    return None, None
 
             try:
                 new_tokens = await self._fetch_new_token(refresh_token)
