@@ -94,11 +94,12 @@ class AccessTokenMixin:
             now = time.time()
 
             expires_at = auth_state.get("expires_at")
+            refresh_expires_at = auth_state.get("refresh_expires_at")
 
             if expires_at is not None:
                 if (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
                     return auth_state["access_token"], expires_at
-                elif expires_at < now:
+                elif refresh_expires_at is not None and refresh_expires_at < now:
                     # We have no hope of refreshing the session, give up now.
                     return None, None
 
@@ -130,10 +131,12 @@ class AccessTokenMixin:
                 return None, None
             access_token = new_tokens.get("access_token")
             expires_at = now + int(new_tokens.get("expires_in", 0))
+            refresh_expires_at = now + int(new_tokens.get("refresh_expires_in", 0))
             if access_token:
                 auth_state["access_token"] = access_token
                 auth_state["refresh_token"] = new_tokens["refresh_token"]
                 auth_state["expires_at"] = expires_at
+                auth_state["refresh_expires_at"] = refresh_expires_at
                 auth_state[OPENSTACK_RC_AUTH_STATE_KEY].update(
                     {
                         "OS_ACCESS_TOKEN": access_token,
