@@ -71,9 +71,9 @@ class ChameleonSpawner(DockerSpawner):
             if self.name:
                 vols[self._named_name_template] = self._gen_volume_config(self.work_dir)
                 # Also mount the default directory as shared dir
-                vols[self._default_name_template] = self._gen_volume_config(
-                    self.share_dir
-                )
+                # vols[self._default_name_template] = self._gen_volume_config(
+                #    self.share_dir
+                # )
             else:
                 vols[self._default_name_template] = self._gen_volume_config(
                     self.work_dir
@@ -85,8 +85,8 @@ class ChameleonSpawner(DockerSpawner):
     @default("environment")
     def _environment(self):
         chown_extra = [self.work_dir]
-        if self.name:
-            chown_extra.append(self.share_dir)
+        # if self.name:
+        #    chown_extra.append(self.share_dir)
         return {
             "CHOWN_EXTRA": ",".join(chown_extra),
             "CHOWN_EXTRA_OPTS": "-R",
@@ -145,7 +145,8 @@ class ChameleonSpawner(DockerSpawner):
         extra_env = {}
         # Rename notebook user (jovyan) to Chameleon username
         extra_env["NB_USER"] = self.user.name
-        ssh_dir = self.share_dir if self.name else self.work_dir
+        # ssh_dir = self.share_dir if self.name else self.work_dir
+        ssh_dir = self.work_dir
         extra_env["OS_KEYPAIR_PRIVATE_KEY"] = f"{ssh_dir}/.ssh/id_rsa"
         extra_env["OS_KEYPAIR_PUBLIC_KEY"] = f"{ssh_dir}/.ssh/id_rsa.pub"
 
