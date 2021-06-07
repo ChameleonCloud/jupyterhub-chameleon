@@ -52,7 +52,7 @@ class ChameleonSpawner(DockerSpawner):
     #     return options
 
     _default_name_template = "{prefix}-{username}"
-    _named_name_template = "{prefix}-{username}-exp-{servername}"
+    _named_name_template = "{prefix}-{username}-trovi-{servername}"
 
     @default("name_template")
     def _name_template(self):
@@ -149,6 +149,10 @@ class ChameleonSpawner(DockerSpawner):
         ssh_dir = self.work_dir
         extra_env["OS_KEYPAIR_PRIVATE_KEY"] = f"{ssh_dir}/.ssh/id_rsa"
         extra_env["OS_KEYPAIR_PUBLIC_KEY"] = f"{ssh_dir}/.ssh/id_rsa.pub"
+        if self.name:
+            # Experiment (named) servers will need new keypairs generated;
+            # name them after the artifact hash.
+            extra_env["OS_KEYPAIR_NAME"] = f"trovi-{self.name}"
 
         # Add parameters for experiment import
         artifact = self.get_artifact()
