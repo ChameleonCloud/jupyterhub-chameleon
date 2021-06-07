@@ -52,7 +52,7 @@ class ChameleonSpawner(DockerSpawner):
     #     return options
 
     _default_name_template = "{prefix}-{username}"
-    _named_name_template = "{prefix}-{username}-trovi-{servername}"
+    _named_name_template = "{prefix}-{username}-exp-{servername}"
 
     @default("name_template")
     def _name_template(self):
