@@ -140,9 +140,9 @@ class ChameleonSpawner(DockerSpawner):
         return os.environ["DOCKER_NETWORK_NAME"]
 
     def _get_unix_user(self):
-        name = self.user.name
+        name = self.user.name.lower()
         # Escape bad characters (just make them unix_safe)
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+        name = re.sub(r"[^a-z0-9_-]", "_", name)
         # Ensure we start with an proper character
         if not re.search(r"^[a-z_]", name):
             name = "_" + name
