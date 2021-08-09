@@ -253,7 +253,7 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             return None
 
         user_json = json.loads(user_resp.body.decode("utf8", "replace"))
-        username = user_json.get("preferred_username").split("@", 1)[0]
+        username = user_json.get("preferred_username")
         is_admin = self.keycloak_admin_group in user_json.get(
             self.keycloak_groups_claim, []
         )
@@ -284,7 +284,6 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
                 )
             )
             openstack_rc = None
-
         return {
             "name": username,
             "admin": is_admin,

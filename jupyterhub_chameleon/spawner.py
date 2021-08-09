@@ -1,4 +1,5 @@
 import os
+import re
 
 from dockerspawner import DockerSpawner
 from traitlets import default, Bool, Dict, Unicode
@@ -78,7 +79,6 @@ class ChameleonSpawner(DockerSpawner):
                 vols[self._default_name_template] = self._gen_volume_config(
                     self.work_dir
                 )
-
         vols.update(self.extra_volumes)
         return vols
 
@@ -139,12 +139,22 @@ class ChameleonSpawner(DockerSpawner):
     def _network_name(self):
         return os.environ["DOCKER_NETWORK_NAME"]
 
+    def _get_unix_user(self):
+        name = self.user.name.lower()
+        # Escape bad characters (just make them unix_safe)
+        name = re.sub(r"[^a-z0-9_-]", "_", name)
+        # Ensure we start with an proper character
+        if not re.search(r"^[a-z_]", name):
+            name = "_" + name
+        # Usernames may only be 32 characters
+        return name[:32]
+
     def get_env(self):
         env = super().get_env()
 
         extra_env = {}
         # Rename notebook user (jovyan) to Chameleon username
-        extra_env["NB_USER"] = self.user.name
+        extra_env["NB_USER"] = self._get_unix_user()
         # ssh_dir = self.share_dir if self.name else self.work_dir
         ssh_dir = self.work_dir
         extra_env["OS_KEYPAIR_PRIVATE_KEY"] = f"{ssh_dir}/.ssh/id_rsa"
