@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import time
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from jupyterhub.handlers.login import LogoutHandler
@@ -347,3 +348,11 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
         )
         headers["Authorization"] = "Basic {}".format(b64key.decode("utf8"))
         return headers
+
+    async def refresh_user(self, user, handler=None):
+        try:
+            if user.last_activity < datetime(2021, 8, 12, 19, 30, 0):
+                return False
+        except Exception as e:
+            pass
+        return True
