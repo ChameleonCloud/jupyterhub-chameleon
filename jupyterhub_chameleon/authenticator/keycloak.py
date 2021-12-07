@@ -27,14 +27,19 @@ class SessionRefreshHandler(LogoutHandler):
     before, but with a refreshed session.
     """
 
-    async def render_logout_page(self):
-        next_page = self.get_argument("next", "/")
+    async def render_logout_page(self, next_page=None):
+        if next_page is None:
+            next_page = self.get_argument("next", "/")
         if not next_page.startswith("/"):
             self.log.warning(f"Redirect to non-relative location {next_page} blocked.")
             next_page = "/"
 
         html = await self.render_template("auth_refresh.html", next_page=next_page)
         self.finish(html)
+
+    async def post(self):
+        await self.default_handle_logout()
+        await self.render_logout_page(next_page=self.get_body_argument("next", None))
 
 
 class ChameleonKeycloakAuthenticator(OAuthenticator):
