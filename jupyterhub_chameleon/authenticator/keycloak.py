@@ -5,6 +5,7 @@ import time
 from urllib.parse import urlencode
 
 from jupyterhub.handlers.login import LogoutHandler
+from jupyterhub.utils import url_path_join
 from oauthenticator.oauth2 import OAuthenticator
 from tornado.httpclient import HTTPClientError, HTTPRequest, AsyncHTTPClient
 from traitlets import default, Bool, Int, Unicode
@@ -34,12 +35,17 @@ class SessionRefreshHandler(LogoutHandler):
             self.log.warning(f"Redirect to non-relative location {next_page} blocked.")
             next_page = "/"
 
+        # Redirect relative to the hub prefix. This is very important! The reason is,
+        # only by redirecting to a hub-owned path will it understand that user needs
+        # to be logged in again, because we explicitly killed the Hub session/login.
+        # If we directly go back to a user server, the server's session is actually
+        # still alive! It's not totally clear how we can tell that cookie to get cleared
+        # on logout; it seems the assumption is that users always get there via some
+        # other Hub handler.
+        next_page = url_path_join(self.app.hub_prefix, next_page)
+
         html = await self.render_template("auth_refresh.html", next_page=next_page)
         self.finish(html)
-
-    async def post(self):
-        await self.default_handle_logout()
-        await self.render_logout_page(next_page=self.get_body_argument("next", None))
 
 
 class ChameleonKeycloakAuthenticator(OAuthenticator):
