@@ -58,7 +58,6 @@ class Artifact:
 
     @staticmethod
     def chameleon_url_factory(deposition_id: str) -> str:
-        print(f"DEPOSITION {deposition_id}")
         origin, path = _swift_url_parts(deposition_id)
         key = os.environ['ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY']
         duration_in_seconds = 60

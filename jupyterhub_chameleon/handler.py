@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import os
 import time
 from urllib.parse import parse_qsl, urlencode, urljoin
@@ -20,8 +19,6 @@ from tornado.curl_httpclient import CurlError
 
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
 from .utils import Artifact, upload_url
-
-LOG = logging.getLogger(__name__)
 
 
 class UserRedirectExperimentHandler(BaseHandler):
@@ -234,22 +231,33 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
 
         self.log.debug(f"Trovi token exchange response: {trovi_token}")
 
-        if trovi_resp.status_code != requests.codes.created:
+        if trovi_resp.status_code in (
+            requests.codes.unauthorized,
+            requests.codes.forbidden,
+        ):
+            self.log.error(f"Authentication to trovi failed: {trovi_token}")
             raise HTTPError(
-                401, "You are not authorized to upload artifacts to Trovi via Jupyter."
+                requests.codes.unauthorized,
+                "You are not authorized to upload artifacts to Trovi via Jupyter.",
+            )
+        elif trovi_resp.status_code != requests.codes.created:
+            self.log.error(f"Authentication to trovi failed: {trovi_token}")
+            raise HTTPError(
+                requests.codes.internal_server_error,
+                "Unknown error uploading artifact to Trovi.",
             )
 
         deposition_id = str(uuid.uuid4())
-        response = dict(
-            deposition_id=deposition_id,
-            publish_endpoint=dict(
-                url=upload_url(trovi_token),
-                method="POST",
-                headers={
+        response = {
+            "deposition_id": deposition_id,
+            "publish_endpoint": {
+                "url": upload_url(trovi_token),
+                "method": "POST",
+                "headers": {
                     "Content-Disposition": f"attachment; "
                     f"filename={deposition_id}.tar.gz"
                 },
-            ),
-        )
+            },
+        }
 
         self.write(json.dumps(response))
