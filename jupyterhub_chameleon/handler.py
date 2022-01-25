@@ -1,14 +1,15 @@
 import hashlib
 import json
+import logging
 import os
 import time
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urljoin
 import uuid
 
+import requests
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
-from keystoneclient.v3.client import Client as KeystoneClient
 from tornado.web import HTTPError, authenticated
 from tornado.httpclient import (
     AsyncHTTPClient,
@@ -18,7 +19,9 @@ from tornado.httpclient import (
 from tornado.curl_httpclient import CurlError
 
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
-from .utils import Artifact, keystone_session, upload_url
+from .utils import Artifact, upload_url
+
+LOG = logging.getLogger(__name__)
 
 
 class UserRedirectExperimentHandler(BaseHandler):
@@ -213,86 +216,40 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
         await self.refresh_token(source="artifact_publish_prepare")
 
         auth_state = await self.current_user.get_auth_state()
-        openstack_rc = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
-        user_session = keystone_session(env_overrides=openstack_rc)
 
-        admin_overrides = {
-            key.replace("ARTIFACT_SHARING_", ""): value
-            for key, value in os.environ.items()
-            if key.startswith("ARTIFACT_SHARING_OS_")
-        }
-        admin_session = keystone_session(env_overrides=admin_overrides)
-        # NOTE(jason): we have to set interface/region_name explicitly because
-        # Keystone does not read these from the session/adapter.
-        admin_ks_client = KeystoneClient(
-            session=admin_session,
-            interface=os.environ.get("OS_INTERFACE"),
-            region_name=os.environ.get("OS_REGION_NAME"),
+        # Authenticate to Trovi with our OpenStack credentials,
+        # exchanging our keystone token for a Trovi token
+        trovi_resp = requests.post(
+            urljoin(os.getenv("TROVI_URL"), "/token/"),
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            json={
+                "grant_type": "token_exchange",
+                "subject_token": auth_state.get("access_token"),
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "artifacts:read artifacts:write",
+            },
         )
 
-        response = None
-        trust_project_name = os.environ.get(
-            "ARTIFACT_SHARING_TRUST_PROJECT_NAME", "trovi"
+        trovi_token = trovi_resp.json()
+
+        self.log.debug(f"Trovi token exchange response: {trovi_token}")
+
+        if trovi_resp.status_code != requests.codes.created:
+            raise HTTPError(
+                401, "You are not authorized to upload artifacts to Trovi via Jupyter."
+            )
+
+        deposition_id = str(uuid.uuid4())
+        response = dict(
+            deposition_id=deposition_id,
+            publish_endpoint=dict(
+                url=upload_url(trovi_token),
+                method="POST",
+                headers={
+                    "Content-Disposition": f"attachment; "
+                    f"filename={deposition_id}.tar.gz"
+                },
+            ),
         )
-
-        try:
-            trustee_user_id = user_session.get_user_id()
-            trustor_user_id = admin_session.get_user_id()
-            trust_project = next(
-                iter(admin_ks_client.projects.list(name=trust_project_name)), None
-            )
-
-            if not trust_project:
-                raise ValueError(
-                    (
-                        "Cannot create publish token because trust project "
-                        f"{trust_project_name} does not exist"
-                    )
-                )
-
-            trust = admin_ks_client.trusts.create(
-                trustee_user_id,
-                trustor_user_id,
-                project=trust_project,
-                role_names=["member"],
-            )
-            self.log.info(
-                (
-                    f"Created trust {trust.id} for user {self.current_user} "
-                    f"({trustee_user_id})"
-                )
-            )
-
-            trust_overrides = openstack_rc.copy()
-            trust_overrides["OS_TRUST_ID"] = trust.id
-            # Ensure no project-scoping keys are set on the keystone session;
-            # this will interfere with trust-scoping.
-            project_scoping_keys = [
-                "OS_PROJECT_NAME",
-                "OS_PROJECT_DOMAIN_NAME",
-                "OS_TENANT_NAME",
-                "OS_TENANT_DOMAIN_NAME",
-                "OS_PROJECT_ID",
-                "OS_TENANT_ID",
-            ]
-            for k in project_scoping_keys:
-                if k in trust_overrides:
-                    del trust_overrides[k]
-            trust_session = keystone_session(env_overrides=trust_overrides)
-
-            deposition_id = str(uuid.uuid4())
-            response = dict(
-                deposition_id=deposition_id,
-                publish_endpoint=dict(
-                    url=upload_url(deposition_id),
-                    method="PUT",
-                    headers=trust_session.get_auth_headers(),
-                ),
-            )
-        except:
-            self.log.exception(f"Failed to prepare upload for {self.current_user}")
-
-        if not response:
-            response = dict(error="Could not prepare upload")
 
         self.write(json.dumps(response))

@@ -4,7 +4,7 @@ import hmac
 import os
 import requests
 from time import time
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urljoin
 
 from keystoneauth1 import loading
 from keystoneauth1.session import Session
@@ -58,6 +58,7 @@ class Artifact:
 
     @staticmethod
     def chameleon_url_factory(deposition_id: str) -> str:
+        print(f"DEPOSITION {deposition_id}")
         origin, path = _swift_url_parts(deposition_id)
         key = os.environ['ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY']
         duration_in_seconds = 60
@@ -152,6 +153,10 @@ def _swift_url_parts(deposition_id: str) -> 'tuple[str,str]':
     return origin, f'/v1/AUTH_{project_id}/{container}/{deposition_id}'
 
 
-def upload_url(deposition_id: str) -> str:
-    origin, path = _swift_url_parts(deposition_id)
-    return f'{origin}{path}'
+def upload_url(trovi_token: dict) -> str:
+    return urljoin(
+        os.getenv("TROVI_URL"),
+        "/contents/"
+        "?backend=chameleon"
+        f"&access_token={trovi_token['access_token']}"
+    )
