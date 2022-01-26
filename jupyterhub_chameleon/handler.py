@@ -229,6 +229,8 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
 
         trovi_token = trovi_resp.json()
 
+        self.log.debug(auth_state.get("access_token"))
+
         self.log.debug(f"Trovi token exchange response: {trovi_token}")
 
         if trovi_resp.status_code in (
@@ -247,16 +249,10 @@ class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
                 "Unknown error uploading artifact to Trovi.",
             )
 
-        deposition_id = str(uuid.uuid4())
         response = {
-            "deposition_id": deposition_id,
             "publish_endpoint": {
                 "url": upload_url(trovi_token),
                 "method": "POST",
-                "headers": {
-                    "Content-Disposition": f"attachment; "
-                    f"filename={deposition_id}.tar.gz"
-                },
             },
         }
 
