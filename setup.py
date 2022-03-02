@@ -16,6 +16,7 @@ setup(
         "keystoneauth1",
         "oauthenticator",
         "python-keystoneclient",
+        "requests",
         "tornado",
         "traitlets",
     ],

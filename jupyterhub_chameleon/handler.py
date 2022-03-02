@@ -2,69 +2,22 @@ import hashlib
 import json
 import os
 import time
-from urllib.parse import parse_qsl, urlencode, urljoin
-import uuid
+from urllib.parse import parse_qsl, urlencode
 
 import requests
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
-from tornado.web import HTTPError, authenticated
+from tornado.curl_httpclient import CurlError
 from tornado.httpclient import (
     AsyncHTTPClient,
     HTTPRequest,
     HTTPError as HTTPClientError,
 )
-from tornado.curl_httpclient import CurlError
+from tornado.web import HTTPError, authenticated
 
+from . import trovi
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
-from .utils import Artifact, upload_url
-
-
-class UserRedirectExperimentHandler(BaseHandler):
-    """Redirect spawn requests to user servers.
-
-    /import?{query vars} will spawn a new experiment server
-    Server will be initialized with a given artifact/repository.
-    """
-
-    @authenticated
-    def get(self):
-        base_spawn_url = url_path_join(
-            self.hub.base_url, "spawn", self.current_user.name
-        )
-
-        if self.request.query:
-            query = dict(parse_qsl(self.request.query))
-            artifact = Artifact.from_query(query)
-
-            if not artifact:
-                raise HTTPError(400, ("Could not understand import request"))
-
-            sha = hashlib.sha256()
-            sha.update(artifact.deposition_repo.encode("utf-8"))
-            sha.update(artifact.deposition_id.encode("utf-8"))
-            server_name = sha.hexdigest()[:7]
-
-            # Auto-open file when we land in server
-            if "file_path" in query:
-                file_path = query.pop("file_path")
-                query["next"] = url_path_join(
-                    self.hub.base_url,
-                    "user",
-                    self.current_user.name,
-                    server_name,
-                    "lab",
-                    "tree",
-                    file_path,
-                )
-
-            spawn_url = url_path_join(base_spawn_url, server_name)
-            spawn_url += "?" + urlencode(query)
-        else:
-            spawn_url = base_spawn_url
-
-        self.redirect(spawn_url)
 
 
 class AccessTokenMixin:
@@ -184,6 +137,102 @@ class AccessTokenMixin:
         return resp_json
 
 
+class UserRedirectExperimentHandler(AccessTokenMixin, BaseHandler):
+    """Redirect spawn requests to user servers.
+
+    /import?{query vars} will spawn a new experiment server
+    Server will be initialized with a given artifact/repository.
+    """
+
+    artifact = None
+    version = None
+    contents_url = None
+    ownership = None
+
+    @authenticated
+    async def get(self):
+        base_spawn_url = url_path_join(
+            self.hub.base_url, "spawn", self.current_user.name
+        )
+
+        if self.request.query:
+            query = dict(parse_qsl(self.request.query))
+            artifact_id = query.get("artifact")
+            version_number = query.get("version", 0)
+
+            if not artifact_id:
+                raise HTTPError(
+                    requests.codes.bad_request, "Could not understand import request"
+                )
+
+            if not self.current_user:
+                raise HTTPError(
+                    requests.codes.unauthorized,
+                    "Authentication with API token required",
+                )
+
+            await self.refresh_token(source="artifact_import_redirect")
+            auth_state = await self.current_user.get_auth_state()
+
+            trovi_token = trovi.exchange_token(auth_state.get("access_token"))
+
+            artifact = trovi.fetch_artifact(artifact_id, trovi_token)
+
+            versions = list(
+                sorted(
+                    artifact["versions"],
+                    reverse=True,
+                    key=lambda v: v["created_at"],
+                )
+            )
+            if version_number < 0 or version_number >= len(versions):
+                raise HTTPError(requests.codes.bad_request, "Invalid version number")
+            if len(versions) == 0:
+                raise HTTPError(
+                    requests.codes.internal_server_error,
+                    "Artifact has no linked content.",
+                )
+            version = versions[version_number]
+
+            contents_url = trovi.fetch_contents_url(
+                version["contents"]["urn"], trovi_token
+            )
+
+            owner = artifact["owner_urn"].split(":")[-1]
+            if self.current_user.name == owner or not artifact.id:
+                self.ownership = "own"
+            else:
+                self.ownership = "fork"
+
+            self.artifact = artifact
+            self.version = version
+            self.contents_url = contents_url
+
+            sha = hashlib.sha256()
+            sha.update(version["contents"]["urn"].encode("utf-8"))
+            server_name = sha.hexdigest()[:7]
+
+            # Auto-open file when we land in server
+            if "file_path" in query:
+                file_path = query.pop("file_path")
+                query["next"] = url_path_join(
+                    self.hub.base_url,
+                    "user",
+                    self.current_user.name,
+                    server_name,
+                    "lab",
+                    "tree",
+                    file_path,
+                )
+
+            spawn_url = url_path_join(base_spawn_url, server_name)
+            spawn_url += "?" + urlencode(query)
+        else:
+            spawn_url = base_spawn_url
+
+        self.redirect(spawn_url)
+
+
 class AccessTokenHandler(AccessTokenMixin, APIHandler):
     async def get(self):
         if not self.current_user:
@@ -200,60 +249,4 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
             response = dict(access_token=access_token, expires_at=expires_at)
         else:
             response = dict(error="Unable to retrieve access token")
-        self.write(json.dumps(response))
-
-
-class ArtifactPublishPrepareUploadHandler(AccessTokenMixin, APIHandler):
-    async def get(self):
-        if not self.current_user:
-            raise HTTPError(401, "Authentication with API token required")
-
-        # For federated logins, Keystone authentication relies on short-lived
-        # tokens from the IdP; ensure we have a fresh one stored for the user.
-        await self.refresh_token(source="artifact_publish_prepare")
-
-        auth_state = await self.current_user.get_auth_state()
-
-        # Authenticate to Trovi with our OpenStack credentials,
-        # exchanging our keystone token for a Trovi token
-        trovi_resp = requests.post(
-            urljoin(os.getenv("TROVI_URL"), "/token/"),
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
-            json={
-                "grant_type": "token_exchange",
-                "subject_token": auth_state.get("access_token"),
-                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
-                "scope": "artifacts:read artifacts:write",
-            },
-        )
-
-        trovi_token = trovi_resp.json()
-
-        self.log.debug(auth_state.get("access_token"))
-
-        self.log.debug(f"Trovi token exchange response: {trovi_token}")
-
-        if trovi_resp.status_code in (
-            requests.codes.unauthorized,
-            requests.codes.forbidden,
-        ):
-            self.log.error(f"Authentication to trovi failed: {trovi_token}")
-            raise HTTPError(
-                requests.codes.unauthorized,
-                "You are not authorized to upload artifacts to Trovi via Jupyter.",
-            )
-        elif trovi_resp.status_code != requests.codes.created:
-            self.log.error(f"Authentication to trovi failed: {trovi_token}")
-            raise HTTPError(
-                requests.codes.internal_server_error,
-                "Unknown error uploading artifact to Trovi.",
-            )
-
-        response = {
-            "publish_endpoint": {
-                "url": upload_url(trovi_token),
-                "method": "POST",
-            },
-        }
-
         self.write(json.dumps(response))

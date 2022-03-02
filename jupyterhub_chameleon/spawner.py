@@ -4,8 +4,6 @@ import re
 from dockerspawner import DockerSpawner
 from traitlets import default, Bool, Dict, Unicode
 
-from .utils import Artifact
-
 
 class ChameleonSpawner(DockerSpawner):
     work_dir = Unicode(
@@ -67,18 +65,14 @@ class ChameleonSpawner(DockerSpawner):
     @property
     def volumes(self):
         vols = {}
-        artifact = self.get_artifact()
-        if not (artifact and artifact.ephemeral):
-            if self.name:
-                vols[self._named_name_template] = self._gen_volume_config(self.work_dir)
-                # Also mount the default directory as shared dir
-                # vols[self._default_name_template] = self._gen_volume_config(
-                #    self.share_dir
-                # )
-            else:
-                vols[self._default_name_template] = self._gen_volume_config(
-                    self.work_dir
-                )
+        if self.name:
+            vols[self._named_name_template] = self._gen_volume_config(self.work_dir)
+            # Also mount the default directory as shared dir
+            # vols[self._default_name_template] = self._gen_volume_config(
+            #    self.share_dir
+            # )
+        else:
+            vols[self._default_name_template] = self._gen_volume_config(self.work_dir)
         vols.update(self.extra_volumes)
         return vols
 
@@ -159,6 +153,7 @@ class ChameleonSpawner(DockerSpawner):
         ssh_dir = self.work_dir
         extra_env["OS_KEYPAIR_PRIVATE_KEY"] = f"{ssh_dir}/.ssh/id_rsa"
         extra_env["OS_KEYPAIR_PUBLIC_KEY"] = f"{ssh_dir}/.ssh/id_rsa.pub"
+        extra_env["TROVI_URL"] = os.getenv("TROVI_URL")
         if self.name:
             # Experiment (named) servers will need new keypairs generated;
             # name them after the artifact hash.
@@ -166,26 +161,38 @@ class ChameleonSpawner(DockerSpawner):
 
         # Add parameters for experiment import
         artifact = self.get_artifact()
-        if artifact:
-            deposition_url = artifact.deposition_url()
-            extra_env["ARTIFACT_DEPOSITION_URL"] = deposition_url
-            extra_env["ARTIFACT_DEPOSITION_REPO"] = artifact.deposition_repo
-            extra_env["ARTIFACT_ID"] = artifact.id
-            extra_env["ARTIFACT_OWNERSHIP"] = artifact.ownership
+        version = self.get_version()
+        if artifact and version:
+            contents_url = self.get_contents_url()
+            contents_location = version["contents"]["urn"].split(":")[1]
+            extra_env["ARTIFACT_CONTENTS_URL"] = contents_url
+            extra_env["ARTIFACT_CONTENTS_LOCATION"] = contents_location
+            extra_env["ARTIFACT_OWNERSHIP"] = self.get_ownership()
+            extra_env["ARTIFACT_ID"] = artifact["id"]
             self.log.info(
                 f"User {self.user.name} importing from "
-                f"{artifact.deposition_repo}: {deposition_url}"
+                f"{contents_location}: {contents_url}"
             )
 
         env.update(extra_env)
 
         return env
 
-    def get_artifact(self) -> Artifact:
-        if self.handler:
-            return Artifact.from_query(self.handler.request.query)
-        else:
-            return None
+    def get_artifact(self):
+        if self.handler and hasattr(self.handler, "artifact"):
+            return self.handler.artifact
+
+    def get_version(self):
+        if self.handler and hasattr(self.handler, "version"):
+            return self.handler.version
+
+    def get_contents_url(self):
+        if self.handler and hasattr(self.handler, "contents_url"):
+            return self.handler.contents_url
+
+    def get_ownership(self):
+        if self.handler and hasattr(self.handler, "ownership"):
+            return self.handler.ownership
 
     def _gen_volume_config(self, target):
         return dict(

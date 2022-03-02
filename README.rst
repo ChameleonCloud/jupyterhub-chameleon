@@ -82,17 +82,3 @@ this module:
   authentication.
 :OS_PROTOCOL:
   (str) the Keystone federation protocol to use (openid, saml).
-:ARTIFACT_SHARING_SWIFT_ACCOUNT:
-  (str) the Swift account ID to upload artifacts as. This should match either
-    the account owner for the container, or some account that has read access.
-:ARTIFACT_SHARING_SWIFT_CONTAINER:
-  (str) the Swift container to store uploaded artifacts. Defaults to "trovi"
-:ARTIFACT_SHARING_SWIFT_TEMP_URL_KEY:
-  (str) the Swift secret key for signing temporary URLs.
-:ARTIFACT_SHARING_TRUST_PROJECT_NAME:
-  (str) the Keystone project to bind publish trusts to. Paired with Swift ACLs,
-  this allows for a container to be write-only from any authenticated user.
-  Defaults to "trovi".
-:ARTIFACT_SHARING_OS_\*:
-  (str) OpenStack RC parameter overrides to use when authenticating to Keystone
-  to generate upload trusts and tokens.
