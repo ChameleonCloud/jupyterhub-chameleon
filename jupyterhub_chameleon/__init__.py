@@ -2,7 +2,6 @@ import os
 import sys
 
 from .handler import AccessTokenHandler
-from .handler import ArtifactPublishPrepareUploadHandler
 from .handler import UserRedirectExperimentHandler
 
 origin = "*"
@@ -33,7 +32,6 @@ def install_extension(config):
     c.JupyterHub.extra_handlers = [
         (r"/import", UserRedirectExperimentHandler),
         (r"/api/tokens", AccessTokenHandler),
-        (r"/api/share/prepare_upload", ArtifactPublishPrepareUploadHandler),
     ]
 
     c.JupyterHub.template_paths = [
