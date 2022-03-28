@@ -27,6 +27,14 @@ class ChameleonSpawner(DockerSpawner):
         """,
     )
 
+    trovi_url = Unicode(
+        os.getenv("TROVI_URL", "https://trovi.chameleoncloud.org"),
+        config=True,
+        help="""
+        Base URL for Trovi experiment storage/sharing API.
+        """,
+    )
+
     # Always remove stopped containers
     remove = Bool(True, config=True)
 
@@ -163,6 +171,8 @@ class ChameleonSpawner(DockerSpawner):
             # Experiment (named) servers will need new keypairs generated;
             # name them after the artifact hash.
             extra_env["OS_KEYPAIR_NAME"] = f"trovi-{self.name}"
+
+        extra_env["TROVI_URL"] = self.trovi_url
 
         # Add parameters for experiment import
         artifact = self.get_artifact()
