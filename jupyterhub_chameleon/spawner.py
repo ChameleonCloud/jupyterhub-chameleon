@@ -172,7 +172,11 @@ class ChameleonSpawner(DockerSpawner):
             # name them after the artifact hash.
             extra_env["OS_KEYPAIR_NAME"] = f"trovi-{self.name}"
 
-        extra_env["TROVI_URL"] = self.trovi_url
+        # TODO(adam): We override this manually, because we could not figure out why
+        #             traitlets was not resolving this URL properly
+        extra_env["TROVI_URL"] = os.getenv(
+            "TROVI_URL", "https://trovi.chameleoncloud.org"
+        )
 
         # Add parameters for experiment import
         artifact = self.get_artifact()
