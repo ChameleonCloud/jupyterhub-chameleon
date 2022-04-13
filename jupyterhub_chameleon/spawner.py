@@ -181,14 +181,13 @@ class ChameleonSpawner(DockerSpawner):
         # Add parameters for experiment import
         artifact = self.get_artifact()
         if artifact:
-            deposition_url = artifact.deposition_url()
-            extra_env["ARTIFACT_DEPOSITION_URL"] = deposition_url
+            extra_env["ARTIFACT_CONTENTS_URL"] = artifact.contents_url
             extra_env["ARTIFACT_DEPOSITION_REPO"] = artifact.deposition_repo
             extra_env["ARTIFACT_ID"] = artifact.id
             extra_env["ARTIFACT_OWNERSHIP"] = artifact.ownership
             self.log.info(
                 f"User {self.user.name} importing from "
-                f"{artifact.deposition_repo}: {deposition_url}"
+                f"{artifact.deposition_repo}: {artifact.contents_url}"
             )
 
         env.update(extra_env)
