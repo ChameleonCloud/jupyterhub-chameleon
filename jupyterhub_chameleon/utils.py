@@ -27,11 +27,13 @@ class Artifact:
             environment is torn down. Default = False.
     """
     def __init__(self, deposition_repo=None, deposition_id=None, id=None,
-                 contents_url=None, ownership='fork', ephemeral=None):
+                 contents_url=None, ownership='fork', ephemeral=None,
+                 contents_proto=None):
         self.id = id
         self.deposition_repo = deposition_repo
         self.deposition_id = deposition_id
         self.contents_url = contents_url
+        self.contents_proto = contents_proto
         self.ownership = ownership
         self.ephemeral = ephemeral in [True, 'True', 'true', 'yes', '1']
 

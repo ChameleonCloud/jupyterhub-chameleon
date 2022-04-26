@@ -182,6 +182,7 @@ class ChameleonSpawner(DockerSpawner):
         artifact = self.get_artifact()
         if artifact:
             extra_env["ARTIFACT_CONTENTS_URL"] = artifact.contents_url
+            extra_env["ARTIFACT_CONTENTS_PROTO"] = artifact.contents_proto
             extra_env["ARTIFACT_DEPOSITION_REPO"] = artifact.deposition_repo
             extra_env["ARTIFACT_ID"] = artifact.id
             extra_env["ARTIFACT_OWNERSHIP"] = artifact.ownership
