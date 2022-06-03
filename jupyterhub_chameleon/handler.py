@@ -18,7 +18,7 @@ from tornado.httpclient import (
 from tornado.curl_httpclient import CurlError
 
 from .authenticator.config import OPENSTACK_RC_AUTH_STATE_KEY
-from .utils import Artifact, upload_url
+from .utils import Artifact
 
 
 class UserRedirectExperimentHandler(BaseHandler):
@@ -42,8 +42,8 @@ class UserRedirectExperimentHandler(BaseHandler):
                 raise HTTPError(400, ("Could not understand import request"))
 
             sha = hashlib.sha256()
-            sha.update(artifact.deposition_repo.encode("utf-8"))
-            sha.update(artifact.deposition_id.encode("utf-8"))
+            sha.update(artifact.contents_repo.encode("utf-8"))
+            sha.update(artifact.contents_id.encode("utf-8"))
             server_name = sha.hexdigest()[:7]
 
             # Auto-open file when we land in server
