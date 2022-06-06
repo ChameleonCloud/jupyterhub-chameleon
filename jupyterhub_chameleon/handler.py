@@ -42,7 +42,7 @@ class UserRedirectExperimentHandler(BaseHandler):
                 raise HTTPError(400, ("Could not understand import request"))
 
             sha = hashlib.sha256()
-            sha.update(artifact.contents_repo.encode("utf-8"))
+            sha.update(artifact.contents_backend.encode("utf-8"))
             sha.update(artifact.contents_id.encode("utf-8"))
             server_name = sha.hexdigest()[:7]
 

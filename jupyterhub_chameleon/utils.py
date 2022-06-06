@@ -5,13 +5,23 @@ from urllib.parse import parse_qsl
 from keystoneauth1 import loading
 from keystoneauth1.session import Session
 
+TROVI_URN_PREFIX = "urn:trovi:"
+
+
+def parse_trovi_contents_urn(urn: str):
+    backend, id = urn.replace(f"{TROVI_URN_PREFIX}contents:", "").split(":", 1)
+    return backend, id
+
 
 class Artifact:
     """A shared experiment/research artifact that can be spawned in JupyterHub.
 
     Attrs:
-        contents_id (str): the ID of the artifact's Trovi contents.
-        contents_repo (str): the name of the artifact's Trovi contents repository.
+        contents_urn (str): the URN of the artifact's Trovi contents.
+        contents_id (str): DEPRECATED: the ID of the artifact's Trovi contents.
+            This is derived from the URN.
+        contents_backend (str): DEPRECATED: the name of the artifact's Trovi contents
+            backend. This is derived from the URN.
         contents_url (str): the access URL for the artifact's Trovi contents.
         contents_proto (str): the protocol for accessing the artifact's Trovi contents.
         ownership (str): the requesting user's ownership status of this
@@ -24,15 +34,20 @@ class Artifact:
 
     def __init__(
         self,
+        contents_urn=None,
         contents_id=None,
-        contents_repo=None,
+        contents_backend=None,
         contents_url=None,
         contents_proto=None,
         ownership="fork",
         ephemeral=None,
     ):
-        self.contents_id = contents_id
-        self.contents_repo = contents_repo
+        self.contents_urn = contents_urn
+        id_from_urn, backend_from_urn = parse_trovi_contents_urn(contents_urn)
+        self.contents_id = contents_id if contents_id else id_from_urn
+        self.contents_backend = (
+            contents_backend if contents_backend else backend_from_urn
+        )
         self.contents_url = contents_url
         self.contents_proto = contents_proto
         self.ownership = ownership
@@ -40,7 +55,7 @@ class Artifact:
 
         # Only the contents information is required. Theoretically this can
         # allow importing from other sources that are not yet existing on Trovi.
-        if not (contents_repo and contents_id):
+        if not (contents_url and contents_proto):
             raise ValueError("Missing contents information")
 
     @classmethod
