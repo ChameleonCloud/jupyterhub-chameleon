@@ -183,12 +183,12 @@ class ChameleonSpawner(DockerSpawner):
         if artifact:
             extra_env["ARTIFACT_CONTENTS_URL"] = artifact.contents_url
             extra_env["ARTIFACT_CONTENTS_PROTO"] = artifact.contents_proto
-            extra_env["ARTIFACT_DEPOSITION_REPO"] = artifact.deposition_repo
-            extra_env["ARTIFACT_ID"] = artifact.id
+            extra_env["ARTIFACT_CONTENTS_ID"] = artifact.contents_id
+            extra_env["ARTIFACT_CONTENTS_REPO"] = artifact.contents_repo
             extra_env["ARTIFACT_OWNERSHIP"] = artifact.ownership
             self.log.info(
                 f"User {self.user.name} importing from "
-                f"{artifact.deposition_repo}: {artifact.contents_url}"
+                f"{artifact.contents_repo}: {artifact.contents_url}"
             )
 
         env.update(extra_env)
