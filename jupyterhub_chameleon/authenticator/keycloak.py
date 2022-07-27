@@ -269,7 +269,8 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             self.keycloak_groups_claim, []
         )
 
-        has_active_allocations = len(user_json.get("projects", [])) > 0
+        user_projects = user_json.get("projects", [])
+        has_active_allocations = len(user_projects) > 0
         if not has_active_allocations:
             self.log.info(f"User {username} does not have any active allocations")
             return None
@@ -287,6 +288,8 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
             }
             if self.keystone_default_region_name:
                 openstack_rc["OS_REGION_NAME"] = self.keystone_default_region_name
+            if user_projects:
+                openstack_rc["OS_PROJECT_NAME"] = user_projects[0]["id"]
         else:
             self.log.warning(
                 (
