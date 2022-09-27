@@ -181,6 +181,8 @@ class ChameleonSpawner(DockerSpawner):
         # Add parameters for experiment import
         artifact = self.get_artifact()
         if artifact:
+            extra_env["ARTIFACT_UUID"] = artifact.uuid
+            extra_env["ARTIFACT_VERSION_SLUG"] = artifact.version_slug
             extra_env["ARTIFACT_CONTENTS_URL"] = artifact.contents_url
             extra_env["ARTIFACT_CONTENTS_PROTO"] = artifact.contents_proto
             extra_env["ARTIFACT_CONTENTS_URN"] = artifact.contents_urn

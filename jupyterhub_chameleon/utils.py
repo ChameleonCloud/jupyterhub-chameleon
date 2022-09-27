@@ -17,6 +17,8 @@ class Artifact:
     """A shared experiment/research artifact that can be spawned in JupyterHub.
 
     Attrs:
+        uuid (str): the UUID of the artifact.
+        version_slug (str): the version slug of the artifact.
         contents_urn (str): the URN of the artifact's Trovi contents.
         contents_id (str): DEPRECATED: the ID of the artifact's Trovi contents.
             This is derived from the URN.
@@ -34,6 +36,8 @@ class Artifact:
 
     def __init__(
         self,
+        uuid=None,
+        version_slug=None,
         contents_urn=None,
         contents_id=None,
         contents_backend=None,
@@ -42,6 +46,8 @@ class Artifact:
         ownership="fork",
         ephemeral=None,
     ):
+        self.uuid = uuid
+        self.version_slug = version_slug
         self.contents_urn = contents_urn
         id_from_urn, backend_from_urn = parse_trovi_contents_urn(contents_urn)
         self.contents_id = contents_id if contents_id else id_from_urn
