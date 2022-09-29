@@ -3,6 +3,7 @@ import sys
 
 from .handler import AccessTokenHandler
 from .handler import UserRedirectExperimentHandler
+from .handler import TroviMetricHandler
 
 origin = "*"
 # Terminate servers after 3 days of idleness
@@ -32,6 +33,7 @@ def install_extension(config):
     c.JupyterHub.extra_handlers = [
         (r"/import", UserRedirectExperimentHandler),
         (r"/api/tokens", AccessTokenHandler),
+        (r"/api/trovi_metrics", TroviMetricHandler),
     ]
 
     c.JupyterHub.template_paths = [
