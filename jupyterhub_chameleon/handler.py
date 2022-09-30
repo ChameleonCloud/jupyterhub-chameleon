@@ -3,7 +3,6 @@ import json
 import os
 import time
 from urllib.parse import parse_qsl, urlencode, urljoin
-import uuid
 
 import requests
 from jupyterhub.apihandlers import APIHandler
@@ -201,3 +200,64 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
         else:
             response = dict(error="Unable to retrieve access token")
         self.write(json.dumps(response))
+
+
+class TroviMetricHandler(APIHandler):
+    async def _get_client_admin_token(self):
+        client_id = os.environ["KEYCLOAK_CLIENT_ID"]
+        client_secret = os.environ["KEYCLOAK_CLIENT_SECRET"]
+        server_url = os.environ["KEYCLOAK_SERVER_URL"]
+        realm_name = os.environ["KEYCLOAK_REALM_NAME"]
+        token_url = os.path.join(
+            server_url, f"auth/realms/{realm_name}/protocol/openid-connect/token"
+        )
+
+        params = dict(
+            grant_type="client_credentials",
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        body = urlencode(params)
+        req = HTTPRequest(token_url, "POST", body=body)
+        self.log.debug(f'url={token_url} body={body.replace(client_secret, "***")}')
+
+        client = AsyncHTTPClient()
+        resp = await client.fetch(req)
+
+        resp_json = json.loads(resp.body.decode("utf8", "replace"))
+        return resp_json["access_token"]
+
+    async def _get_trovi_token(self):
+        trovi_url = os.getenv("TROVI_URL", "https://trovi.chameleoncloud.org")
+        trovi_resp = requests.post(
+            urljoin(trovi_url, "/token/"),
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            json={
+                "grant_type": "token_exchange",
+                "subject_token": await self._get_client_admin_token(),
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "artifacts:read artifacts:write_metrics",
+            },
+        )
+        trovi_resp.raise_for_status()
+
+        return trovi_resp.json()["access_token"]
+
+    async def get(self):
+        trovi_url = os.getenv("TROVI_URL", "https://trovi.chameleoncloud.org")
+
+        if self.request.query:
+            query = dict(parse_qsl(self.request.query))
+            artifact_uuid = query.pop("artifact_uuid", None)
+            artifact_version_slug = query.pop("artifact_version_slug", None)
+            query["access_token"] = await self._get_trovi_token()
+            if artifact_uuid and artifact_version_slug:
+                resp = requests.put(
+                    urljoin(
+                        trovi_url,
+                        f"/artifacts/{artifact_uuid}/versions/{artifact_version_slug}/metrics/"
+                    ),
+                    params=query,
+                )
+
+                resp.raise_for_status()
