@@ -97,6 +97,7 @@ class AccessTokenMixin:
             refresh_expires_at = auth_state.get("refresh_expires_at")
 
             if expires_at is not None:
+                return auth_state["access_token"], expires_at
                 if (expires_at - now) >= self.TOKEN_EXPIRY_REFRESH_THRESHOLD:
                     return auth_state["access_token"], expires_at
                 elif refresh_expires_at is not None and refresh_expires_at < now:
@@ -159,13 +160,9 @@ class AccessTokenMixin:
             return None, None
 
     async def _fetch_new_token(self, refresh_token):
-        client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-        client_secret = os.environ["KEYCLOAK_CLIENT_SECRET"]
-        server_url = os.environ["KEYCLOAK_SERVER_URL"]
-        realm_name = os.environ["KEYCLOAK_REALM_NAME"]
-        token_url = os.path.join(
-            server_url, f"auth/realms/{realm_name}/protocol/openid-connect/token"
-        )
+        client_id = os.environ["OAUTH_CLIENT_ID"]
+        client_secret = os.environ["OAUTH_CLIENT_SECRET"]
+        token_url = os.environ["OAUTH2_TOKEN_URL"]
 
         params = dict(
             grant_type="refresh_token",

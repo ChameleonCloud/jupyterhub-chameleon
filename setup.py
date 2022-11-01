@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="jupyterhub-chameleon",
-    version="2.0.8",
+    version="2.0.8_dev",
     description="Chameleon extensions for JupyterHub",
     url="https://github.com/chameleoncloud/jupyterhub-chameleon",
     author="Jason Anderson",
@@ -22,6 +22,7 @@ setup(
     entry_points={
         "jupyterhub.authenticators": [
             "chameleon = jupyterhub_chameleon.authenticator.keycloak:ChameleonKeycloakAuthenticator",
+            "openstack_oauth = jupyterhub_chameleon.authenticator.openstack_oauth:OpenstackOAuthenticator",
         ],
         "jupyterhub.spawners": [
             "chameleon = jupyterhub_chameleon.spawner:ChameleonSpawner",

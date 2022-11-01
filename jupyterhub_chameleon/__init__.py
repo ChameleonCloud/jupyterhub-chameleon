@@ -14,20 +14,21 @@ debug = os.getenv("DEBUG", "").strip().lower() in ["1", "true", "yes"]
 
 def install_extension(config):
     c = config
+    return
 
     # Set log levels
     log_level = "DEBUG" if debug else "INFO"
     c.Application.log_level = c.JupyterHub.log_level = log_level
 
     # The experiment import functionality requires named servers
-    c.JupyterHub.allow_named_servers = True
+    #c.JupyterHub.allow_named_servers = True
     # c.JupyterHub.default_server_name = 'workbench'
     # Enable restarting of Hub without affecting singleuser servers
-    c.JupyterHub.cleanup_servers = False
-    c.JupyterHub.cleanup_proxy = False
+    #c.JupyterHub.cleanup_servers = False
+    #c.JupyterHub.cleanup_proxy = False
     # Keycloak SSO sessions only last 30 days; the Jupyter session length needs
     # to match to avoid allowing to be logged in tof roo long.
-    c.JupyterHub.cookie_max_age_days = 30
+    #c.JupyterHub.cookie_max_age_days = 30
 
     c.JupyterHub.extra_handlers = [
         (r"/import", UserRedirectExperimentHandler),
@@ -38,13 +39,13 @@ def install_extension(config):
         os.path.join(_data_files_path(), "templates"),
     ]
 
-    _configure_authenticator(c)
-    _configure_services(c)
-    _configure_spawner(c)
+    #_configure_authenticator(c)
+    #_configure_services(c)
+    #_configure_spawner(c)
 
 
 def _configure_authenticator(c):
-    c.JupyterHub.authenticator_class = "chameleon"
+    c.JupyterHub.authenticator_class = "openstack_oauth"
 
 
 def _configure_services(c):
@@ -64,12 +65,13 @@ def _configure_services(c):
 
 
 def _configure_spawner(c):
+    raise Exception("Help!!!!")
     c.JupyterHub.spawner_class = "chameleon"
     c.ChameleonSpawner.debug = debug
     c.ChameleonSpawner.mem_limit = "2G"
-    c.ChameleonSpawner.http_timeout = 600
+    #c.ChameleonSpawner.http_timeout = 600
     # This directory will be symlinked to the `ChameleonSpawner.work_dir`
-    c.ChameleonSpawner.notebook_dir = "~/work"
+    #c.ChameleonSpawner.notebook_dir = "~/work"
     c.ChameleonSpawner.args.extend(
         [
             f"--ServerApp.allow_origin={origin}",

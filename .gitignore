@@ -6,3 +6,4 @@ dist/
 __pycache__/
 *.pyc
 *.egg-info
+jupyterhub_cookie_secret

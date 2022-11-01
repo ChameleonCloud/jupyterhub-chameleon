@@ -1,9 +1,10 @@
-jupyterhub_chameleon/service/cull_idle_servers.py:
-	curl -L -o $@ \
-		https://raw.githubusercontent.com/jupyterhub/jupyterhub/master/examples/cull-idle/cull_idle_servers.py
-
 .PHONY: publish
-publish: jupyterhub_chameleon/service/cull_idle_servers.py
+publish:
 	@ rm -rf build dist
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
+
+# Hub notebook targets
+.PHONY: hub-build
+hub-build:
+	docker build --no-cache -t jupyterhub:dev --target dev .
