@@ -8,6 +8,7 @@ import requests
 from jupyterhub.apihandlers import APIHandler
 from jupyterhub.handlers import BaseHandler
 from jupyterhub.utils import url_path_join
+from tornado import web
 from tornado.web import HTTPError, authenticated
 from tornado.httpclient import (
     AsyncHTTPClient,
@@ -243,21 +244,26 @@ class TroviMetricHandler(APIHandler):
 
         return trovi_resp.json()["access_token"]
 
-    async def get(self):
+    async def put(self):
         trovi_url = os.getenv("TROVI_URL", "https://trovi.chameleoncloud.org")
 
-        if self.request.query:
-            query = dict(parse_qsl(self.request.query))
-            artifact_uuid = query.pop("artifact_uuid", None)
-            artifact_version_slug = query.pop("artifact_version_slug", None)
-            query["access_token"] = await self._get_trovi_token()
-            if artifact_uuid and artifact_version_slug:
-                resp = requests.put(
-                    urljoin(
-                        trovi_url,
-                        f"/artifacts/{artifact_uuid}/versions/{artifact_version_slug}/metrics/"
-                    ),
-                    params=query,
-                )
+        query = self.get_json_body()
+        artifact_uuid = query.pop("artifact_uuid", None)
+        artifact_version_slug = query.pop("artifact_version_slug", None)
+        query["access_token"] = await self._get_trovi_token()
+        if artifact_uuid and artifact_version_slug:
+            resp = requests.put(
+                urljoin(
+                    trovi_url,
+                    f"/artifacts/{artifact_uuid}/versions/{artifact_version_slug}/metrics/"
+                ),
+                params=query,
+            )
 
-                resp.raise_for_status()
+            resp.raise_for_status()
+        else:
+            raise web.HTTPError(
+                400,
+                f"Missing required data to update artifact metrics.\n"
+                f"{artifact_uuid=}\n{artifact_version_slug=}"
+            )
