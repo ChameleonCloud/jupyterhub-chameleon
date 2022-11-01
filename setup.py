@@ -22,6 +22,7 @@ setup(
     entry_points={
         "jupyterhub.authenticators": [
             "chameleon = jupyterhub_chameleon.authenticator.keycloak:ChameleonKeycloakAuthenticator",
+            "openstack_oauth = jupyterhub_chameleon.authenticator.openstack_oauth:OpenstackOAuthenticator",
         ],
         "jupyterhub.spawners": [
             "chameleon = jupyterhub_chameleon.spawner:ChameleonSpawner",
