@@ -63,6 +63,3 @@ class ChameleonSpawner(KubeSpawner):
             return Artifact.from_query(self.handler.request.query)
         else:
             return None
-
-    def pre_spawn_hook(self):
-        subprocess.call()
