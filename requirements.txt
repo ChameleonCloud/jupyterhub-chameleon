@@ -1,3 +1,3 @@
 # ChameleonCloud-provided
-jupyterhub-chameleon~=2.0.8.dev0
+jupyterhub-chameleon 
 kubernetes
