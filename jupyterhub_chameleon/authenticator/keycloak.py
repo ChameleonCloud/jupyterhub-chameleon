@@ -216,9 +216,8 @@ class ChameleonKeycloakAuthenticator(OAuthenticator):
     def logout_redirect_url(self):
         params = {
             "client_id": self.client_id,
-            "redirect_uri": f"{self.keycloak_realm_url}/post-logout?client_id={self.client_id}",
         }
-        return f"{self.keycloak_realm_url}/protocol/openid-connect/logout?{urlencode(params)}"
+        return f"{self.keycloak_realm_url}/post-logout?{urlencode(params)}"
 
     async def authenticate(self, handler, data=None):
         """Authenticate with Keycloak."""
