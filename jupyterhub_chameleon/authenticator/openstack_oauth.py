@@ -179,7 +179,9 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
         user_json = json.loads(user_resp.body.decode("utf8", "replace"))
         username = user_json.get("preferred_username")
         # TODO override this in keycloak
-        is_admin = False
+        is_admin = os.getenv("OAUTH_ADMIN_PROJECT", "Chameleon") in map(
+            lambda x : x.get("id"), user_json.get("projects")
+        )
 
         user_projects = user_json.get("projects", [])
         has_active_allocations = len(user_projects) > 0
@@ -239,7 +241,6 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
                 "auth_state is not enabled! Cannot set OpenStack RC parameters"
             )
             return
-        self.log.info(auth_state)
 
         openrc_vars = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
         self.log.info(openrc_vars)

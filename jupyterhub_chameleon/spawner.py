@@ -34,7 +34,7 @@ class ChameleonSpawner(KubeSpawner):
 
         extra_env = {}
         # Rename notebook user (jovyan) to Chameleon username
-        #extra_env["NB_USER"] = self._get_unix_user()
+        extra_env["NB_USER"] = self._get_unix_user()
         if self.name:
             # Experiment (named) servers will need new keypairs generated;
             # name them after the artifact hash.
