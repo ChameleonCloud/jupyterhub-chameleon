@@ -180,7 +180,7 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
         username = user_json.get("preferred_username")
         # TODO override this in keycloak
         is_admin = os.getenv("OAUTH_ADMIN_PROJECT", "Chameleon") in map(
-            lambda x : x.get("id"), user_json.get("projects")
+            lambda x : x.get("id"), user_json.get("projects", [])
         )
 
         user_projects = user_json.get("projects", [])
