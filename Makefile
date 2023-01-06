@@ -8,7 +8,7 @@ TAG_VERSION = $(shell git log -n1 --format=%h -- .)
 .PHONY: pypi-publish
 pypi-publish:
 	@ rm -rf build dist
-	python setup.py sdist bdist_wheel
+	python3 setup.py sdist bdist_wheel
 	twine upload dist/*
 
 .PHONY: hub-build-dev
