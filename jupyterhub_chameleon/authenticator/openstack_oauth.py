@@ -222,16 +222,6 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
             "auth_state": auth_state,
         }
 
-    def _get_unix_user(self, user):
-        name = user.name.lower()
-        # Escape bad characters (just make them unix_safe)
-        name = re.sub(r"[^a-z0-9_-]", "_", name)
-        # Ensure we start with an proper character
-        if not re.search(r"^[a-z_]", name):
-            name = "_" + name
-        # Usernames may only be 32 characters
-        return name[:32]
-
     async def pre_spawn_start(self, user, spawner):
         """Fill in OpenRC environment variables from user auth state."""
         auth_state = await user.get_auth_state()
@@ -244,13 +234,8 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
 
         openrc_vars = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
         self.log.info(openrc_vars)
-        # TODO this is doing the openstack integration, I think...
         for rc_key, rc_value in openrc_vars.items():
             spawner.environment[rc_key] = rc_value
-
-        #spawner.environment["NB_USER"] = self._get_unix_user(user)
-        #if self.hub_public_url:
-        #    spawner.environment["JUPYTERHUB_PUBLIC_URL"] = self.hub_public_url
 
     def get_handlers(self, app):
         """Override the default handlers to include a custom logout handler."""
