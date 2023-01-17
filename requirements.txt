@@ -1,3 +1,4 @@
 # ChameleonCloud-provided
 jupyterhub-chameleon==2.0.14
 kubernetes
+PyJWT

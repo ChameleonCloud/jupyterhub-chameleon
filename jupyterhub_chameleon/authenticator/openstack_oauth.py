@@ -1,5 +1,6 @@
 import base64
 import json
+import jwt
 import os
 import re
 import time
@@ -158,13 +159,22 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
     async def authenticate(self, handler, data=None):
         # TODO fix overrides here
         """Authenticate with Keycloak."""
-        token_json = await super().authenticate(handler, data)
-        auth_state = token_json["auth_state"]
+        auth_dict = await super().authenticate(handler, data)
+
+        auth_state = auth_dict["auth_state"]
 
         access_token = auth_state["access_token"]
+        decoded_access_token = jwt.decode(
+            access_token, options={"verify_signature": False}
+        )
+
         refresh_token = auth_state["refresh_token"]
-        expires_at = time.time() + int(auth_state.get("expires_in", 0))
-        refresh_expires_at = time.time() + int(auth_state.get("refresh_expires_in", 0))
+        decoded_refresh_token = jwt.decode(
+            refresh_token, options={"verify_signature": False}
+        )
+
+        expires_at = decoded_access_token.get("exp")
+        refresh_expires_at = decoded_refresh_token.get("exp")
 
         user_headers = self._get_default_headers()
         user_headers["Authorization"] = "Bearer {}".format(access_token)
