@@ -200,13 +200,9 @@ class AccessTokenHandler(AccessTokenMixin, APIHandler):
 
 class TroviMetricHandler(APIHandler):
     async def _get_client_admin_token(self):
-        client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-        client_secret = os.environ["KEYCLOAK_CLIENT_SECRET"]
-        server_url = os.environ["KEYCLOAK_SERVER_URL"]
-        realm_name = os.environ["KEYCLOAK_REALM_NAME"]
-        token_url = os.path.join(
-            server_url, f"auth/realms/{realm_name}/protocol/openid-connect/token"
-        )
+        client_id = os.environ["OAUTH_CLIENT_ID"]
+        client_secret = os.environ["OAUTH_CLIENT_SECRET"]
+        token_url = os.environ["KEYCLOAK_TOKEN_URL"]
 
         params = dict(
             grant_type="client_credentials",

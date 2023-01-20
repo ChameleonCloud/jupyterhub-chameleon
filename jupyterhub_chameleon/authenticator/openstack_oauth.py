@@ -19,7 +19,7 @@ class LogoutRedirectHandler(LogoutHandler):
     """Redirect user to IdP logout page to clean upstream session."""
 
     async def render_logout_page(self):
-        self.redirect(self.authenticator.logout_redirect_url, permanent=False)
+        self.redirect(self.authenticator.token_url, permanent=False)
 
 
 class SessionRefreshHandler(LogoutHandler):
