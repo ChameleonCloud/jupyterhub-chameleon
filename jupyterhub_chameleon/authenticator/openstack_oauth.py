@@ -243,7 +243,6 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
             return
 
         openrc_vars = auth_state.get(OPENSTACK_RC_AUTH_STATE_KEY, {})
-        self.log.info(openrc_vars)
         for rc_key, rc_value in openrc_vars.items():
             spawner.environment[rc_key] = rc_value
 
