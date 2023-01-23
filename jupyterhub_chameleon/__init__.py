@@ -46,7 +46,7 @@ def install_extension(config):
 
 
 def _configure_authenticator(c):
-    c.JupyterHub.authenticator_class = "chameleon"
+    c.JupyterHub.authenticator_class = "openstack_oauth"
 
 
 def _configure_services(c):
