@@ -1,9 +1,13 @@
+import hashlib
 import os
 import re
+import string
 import subprocess
 
+import escapism
 from kubespawner import KubeSpawner
 from traitlets import default, Bool, Dict, Unicode
+
 
 from .utils import Artifact
 
@@ -14,10 +18,30 @@ class ChameleonSpawner(KubeSpawner):
 
     @default("pod_name_template")
     def _pod_name_template(self):
+        safe_chars = set(string.ascii_lowercase + string.digits)
+        safe_username = escapism.escape(
+            self.user.name, safe=safe_chars, escape_char='-'
+        ).lower()
+
+        # Check that this username is not too long for a pod in any case
+        # (kubernetes limits pod names to 63 chars)
+        if len(self._named_name_template.format(
+            username=safe_username, servername="123456")) > 63:
+            # Otherwise, use first 30 chars of username, + 12 digit hash
+            short_username = safe_username[:30] + \
+                hashlib.sha1(safe_username.encode("utf-8")).hexdigest()[:12]
+            if self.name:
+                return self._named_name_template.format(
+                    username=short_username, servername='{servername}')
+            else:
+                return self._default_name_template.format(
+                    username=short_username)
+
         if self.name:
             return self._named_name_template
         else:
             return self._default_name_template
+
 
     def _get_unix_user(self):
         name = self.user.name.lower()
