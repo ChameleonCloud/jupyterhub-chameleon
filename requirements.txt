@@ -1,5 +1,5 @@
 # ChameleonCloud-provided
-jupyterhub-chameleon==2.0.16
+jupyterhub-chameleon==2.0.17
 kubernetes==25.3.0
 PyJWT==2.4.0
 escapism==1.0.1
