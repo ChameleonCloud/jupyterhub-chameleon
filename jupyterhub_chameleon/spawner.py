@@ -18,30 +18,10 @@ class ChameleonSpawner(KubeSpawner):
 
     @default("pod_name_template")
     def _pod_name_template(self):
-        safe_chars = set(string.ascii_lowercase + string.digits)
-        safe_username = escapism.escape(
-            self.user.name, safe=safe_chars, escape_char='-'
-        ).lower()
-
-        # Check that this username is not too long for a pod in any case
-        # (kubernetes limits pod names to 63 chars)
-        if len(self._named_name_template.format(
-            username=safe_username, servername="123456")) > 63:
-            # Otherwise, use first 30 chars of username, + 12 digit hash
-            short_username = safe_username[:30] + \
-                hashlib.sha1(safe_username.encode("utf-8")).hexdigest()[:12]
-            if self.name:
-                return self._named_name_template.format(
-                    username=short_username, servername='{servername}')
-            else:
-                return self._default_name_template.format(
-                    username=short_username)
-
         if self.name:
             return self._named_name_template
         else:
             return self._default_name_template
-
 
     def _get_unix_user(self):
         name = self.user.name.lower()
@@ -90,3 +70,46 @@ class ChameleonSpawner(KubeSpawner):
             return Artifact.from_query(self.handler.request.query)
         else:
             return None
+
+    def pre_spawn_hook(self, spawner):
+        # NOTE self and spawner are the same object due to how the parent class
+        # calls this, so you could define this in another module.
+
+        # The length of some kubernetes objects is limited to 63 chars
+        KUBERNETES_LENGTH_LIMIT = 63
+        PREFIX_NAME_LENGTH = 10 # Buffer for other prefixes (e.g. "volume-")
+        SERVER_NAME_LENGTH = 6 # How long named trovi servers are
+        HASH_LENGTH = 12
+
+        short_username_length = KUBERNETES_LENGTH_LIMIT - \
+                PREFIX_NAME_LENGTH - SERVER_NAME_LENGTH - HASH_LENGTH
+
+        # the username the spawner will use. This comes from the kubespawner
+        # code, but it isn't exposed as a function there, so we copy it.
+        safe_chars = set(string.ascii_lowercase + string.digits)
+        safe_username = escapism.escape(
+            self.user.name, safe=safe_chars, escape_char='-'
+        ).lower()
+        short_username = safe_username[:short_username_length] + \
+            hashlib.sha1(
+                safe_username.encode("utf-8")).hexdigest()[:HASH_LENGTH]
+
+        def check_template(template):
+            if len(template.format(
+                    username=safe_username, servername=self.name)
+               ) > KUBERNETES_LENGTH_LIMIT:
+                # Let kubespawner format servername later, with short username
+                return template.format(
+                    username=short_username, servername='{servername}')
+            # Let kubespawner format the template later
+            return template
+
+        # Reformat the pod_name and volume templates using username
+        # as these are subject to the short name limit
+        self.pod_name = check_template(self.pod_name)
+        for v in self.volumes:
+            if '{username}' in v.get("name"):
+                v["name"] = check_template(v.get("name"))
+        for v in self.volume_mounts:
+            if '{username}' in v.get("name"):
+                v["name"] = check_template(v.get("name"))
