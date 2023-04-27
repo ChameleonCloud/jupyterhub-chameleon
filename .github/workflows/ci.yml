@@ -13,7 +13,6 @@ env:
 
 jobs:
   build-image:
-    needs: publish-pypi
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
