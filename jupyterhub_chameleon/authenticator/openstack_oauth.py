@@ -76,7 +76,7 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
     # TODO(jason): we could potentially use the auth refresh mechanism to
     # generate a refresh auth token from Keycloak (and then exchange it for
     # a new Keystone token.)
-    auth_refresh_age = Int(60 * 60)
+    auth_refresh_age = Int(60 * 60 * 24)
 
     @default("scope")
     def _scope_default(self):
