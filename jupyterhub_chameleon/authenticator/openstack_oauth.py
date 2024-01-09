@@ -156,6 +156,9 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
         """,
     )
 
+    # Permits not admin users to log in.
+    allow_all = True
+
     async def authenticate(self, handler, data=None):
         # TODO fix overrides here
         """Authenticate with Keycloak."""
