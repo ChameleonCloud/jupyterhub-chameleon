@@ -1,5 +1,8 @@
 # ChameleonCloud-provided
 git+https://github.com/ChameleonCloud/jupyterhub-chameleon
+git+https://github.com/ChameleonCloud/python-chi
 kubernetes==25.3.0
 PyJWT==2.4.0
 escapism==1.0.1
+asyncssh
+async_generator
