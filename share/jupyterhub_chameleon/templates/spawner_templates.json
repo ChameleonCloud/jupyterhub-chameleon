@@ -1,0 +1,10 @@
+[
+    {
+        "name": "Chameleon Spawner",
+        "resource_type": "baremetal",
+        "providers": ["oci"],
+        "spawner": {
+            "class": "jupyterhub_chameleon.spawner:ChameleonSpawner",
+        },
+    }
+]
