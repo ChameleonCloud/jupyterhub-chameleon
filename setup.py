@@ -32,6 +32,7 @@ setup(
         (
             "share/jupyterhub_chameleon/templates",
             glob("share/jupyterhub_chameleon/templates/*.html"),
+            glob("share/jupyterhub_chameleon/templates/*.json"),
         ),
     ],
 )

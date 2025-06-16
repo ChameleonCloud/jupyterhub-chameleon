@@ -1,5 +1,5 @@
-DOCKER_REGISTRY = docker.chameleoncloud.org
-IMAGE_NAME = jupyterhub
+DOCKER_REGISTRY = ghcr.io/chameleoncloud
+IMAGE_NAME = jupyterhub-chameleon
 DEV_TARGET = dev
 RELEASE_TARGET = release
 RELEASE_PLATFORM = linux/amd64

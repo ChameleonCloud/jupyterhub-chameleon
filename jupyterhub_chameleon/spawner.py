@@ -1,20 +1,44 @@
+import asyncio
 import hashlib
-import os
 import re
 import string
-import subprocess
+from urllib.parse import parse_qsl
 
+import asyncssh
 import escapism
+from async_generator import async_generator, yield_
+from chi import clients, context, lease, server
+from jupyterhub.spawner import Spawner
 from kubespawner import KubeSpawner
-from traitlets import default, Bool, Dict, Unicode
+from traitlets import default
 
-
-from .utils import Artifact
+from .utils import Artifact, ChameleonNodeProvisioner, keystone_session
 
 
 class ChameleonSpawner(KubeSpawner):
     _default_name_template = "jupyter-{username}"
     _named_name_template = "jupyter-{username}-exp-{servername}"
+    tornado_settings = {
+        "slow_spawn_timeout": 0,
+    }
+
+    async def start(self):
+        query_args = dict(parse_qsl(self.handler.request.query))
+        self.spawner_instance = super()
+        if query_args.get("environment", "") == "isolated_jupyter":
+            self.spawner_instance = ChameleonBaremetalHelper(self, query_args)
+            self.hub_connect_url = "http://macintosh"
+        return await self.spawner_instance.start()
+
+    async def stop(self):
+        return await self.spawner_instance.stop()
+
+    async def poll(self):
+        return await self.spawner_instance.poll()
+
+    async def progress(self):
+        async for item in self.spawner_instance.progress():
+            yield item
 
     @default("pod_name_template")
     def _pod_name_template(self):
@@ -77,12 +101,12 @@ class ChameleonSpawner(KubeSpawner):
 
         # The length of some kubernetes objects is limited to 63 chars
         KUBERNETES_LENGTH_LIMIT = 63
-        PREFIX_NAME_LENGTH = 10 # Buffer for other prefixes (e.g. "volume-")
-        SERVER_NAME_LENGTH = 6 # How long named trovi servers are
+        PREFIX_NAME_LENGTH = 10  # Buffer for other prefixes (e.g. "volume-")
+        SERVER_NAME_LENGTH = 6  # How long named trovi servers are
         HASH_LENGTH = 12
 
         short_username_length = KUBERNETES_LENGTH_LIMIT - \
-                PREFIX_NAME_LENGTH - SERVER_NAME_LENGTH - HASH_LENGTH
+            PREFIX_NAME_LENGTH - SERVER_NAME_LENGTH - HASH_LENGTH
 
         # the username the spawner will use. This comes from the kubespawner
         # code, but it isn't exposed as a function there, so we copy it.
@@ -95,9 +119,9 @@ class ChameleonSpawner(KubeSpawner):
                 safe_username.encode("utf-8")).hexdigest()[:HASH_LENGTH]
 
         def check_template(template):
-            if len(template.format(
-                    username=safe_username, servername=self.name)
-               ) > KUBERNETES_LENGTH_LIMIT:
+            if len(
+                template.format(username=safe_username, servername=self.name)
+            ) > KUBERNETES_LENGTH_LIMIT:
                 # Let kubespawner format servername later, with short username
                 return template.format(
                     username=short_username, servername='{servername}')
@@ -113,3 +137,50 @@ class ChameleonSpawner(KubeSpawner):
         for v in self.volume_mounts:
             if '{username}' in v.get("name"):
                 v["name"] = check_template(v.get("name"))
+
+
+class ChameleonBaremetalHelper():
+    def __init__(self, spawner, query_args):
+        self.spawner = spawner
+        self.spawner.message_queue = []
+        self.query_args = query_args
+        self.provisioner = None
+
+    async def start(self):
+        self.provisioner = ChameleonNodeProvisioner(
+            self.spawner,
+            await self.spawner.user.get_auth_state(),
+            self.query_args,
+        )
+        self.provisioner.get_or_create_lease()
+        self.provisioner.get_or_create_instance()
+        self.provisioner.configure_floating_ip()
+        await self.provisioner.install_jupyterhub()
+        return (self.provisioner.floating_ip, 8081)
+
+    async def stop(self):
+        # TODO delete the lease
+        if self.provisioner:
+            self.provisioner.delete_lease()
+
+    async def poll(self):
+        # TODO Return None if baremetal can be reached
+        pass
+
+    @async_generator
+    async def progress(self):
+        if self.spawner.message_queue:
+            i = 0
+            while True:
+                if self.spawner.message_queue:
+                    message_obj = self.spawner.message_queue.pop(0)
+                    i += 1
+                    await yield_(
+                        {
+                            "progress": i * 10,
+                            "message": message_obj["message"],
+                        }
+                    )
+                await asyncio.sleep(1)
+        else:
+            return await super().progress()
