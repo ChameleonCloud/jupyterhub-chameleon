@@ -1,4 +1,4 @@
-ARG base_image=jupyterhub/k8s-hub:3.3.8
+ARG base_image=jupyterhub/k8s-hub:4.0.0
 
 FROM $base_image AS base
 
