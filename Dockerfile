@@ -1,6 +1,6 @@
-ARG base_image=jupyterhub/k8s-hub:3.2.0
+ARG base_image=jupyterhub/k8s-hub:4.0.0
 
-FROM $base_image as base
+FROM $base_image AS base
 
 USER root
 RUN apt-get update \
@@ -16,13 +16,13 @@ ENV PYCURL_SSL_LIBRARY=openssl
 
 WORKDIR /srv/jupyterhub
 
-FROM base as release
+FROM base AS release
 
 ## Install jupyterhub-chameleon extension
 COPY ./requirements.txt /srv/jupyterhub/requirements.txt
 RUN python3 -m pip install -r /srv/jupyterhub/requirements.txt
 
-FROM base as dev
+FROM base AS dev
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
