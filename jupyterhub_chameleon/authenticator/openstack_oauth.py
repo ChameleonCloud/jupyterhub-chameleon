@@ -170,14 +170,15 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
         decoded_access_token = jwt.decode(
             access_token, options={"verify_signature": False}
         )
-
-        refresh_token = auth_state["refresh_token"]
-        decoded_refresh_token = jwt.decode(
-            refresh_token, options={"verify_signature": False}
-        )
-
         expires_at = decoded_access_token.get("exp")
-        refresh_expires_at = decoded_refresh_token.get("exp")
+
+        refresh_token = auth_state.get("refresh_token")
+        refresh_expires_at = None
+        if refresh_token:
+            decoded_refresh_token = jwt.decode(
+                refresh_token, options={"verify_signature": False}
+            )
+            refresh_expires_at = decoded_refresh_token.get("exp")
 
         user_headers = self._get_default_headers()
         user_headers["Authorization"] = "Bearer {}".format(access_token)
