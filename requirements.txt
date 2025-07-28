@@ -5,4 +5,4 @@ PyJWT==2.4.0
 escapism==1.0.1
 # JupyerHub 5.2 is still on oauthenticator 17.1, but 17.2 introduces refresh_user which
 # improves user experience
-oauthenticator==17.2.0
+oauthenticator>=17.2.0
