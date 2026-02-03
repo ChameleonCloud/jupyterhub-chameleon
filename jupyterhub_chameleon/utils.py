@@ -43,6 +43,7 @@ class Artifact:
         contents_backend=None,
         contents_url=None,
         contents_proto=None,
+        repo_url=None,
         ownership="fork",
         ephemeral=None,
     ):
@@ -58,6 +59,7 @@ class Artifact:
         self.contents_proto = contents_proto
         self.ownership = ownership
         self.ephemeral = ephemeral in [True, "True", "true", "yes", "1"]
+        self.repo_url = repo_url
 
         # Only the contents information is required. Theoretically this can
         # allow importing from other sources that are not yet existing on Trovi.

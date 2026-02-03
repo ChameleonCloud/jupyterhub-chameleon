@@ -55,6 +55,7 @@ class ChameleonSpawner(KubeSpawner):
             extra_env["ARTIFACT_CONTENTS_ID"] = artifact.contents_id
             extra_env["ARTIFACT_CONTENTS_BACKEND"] = artifact.contents_backend
             extra_env["ARTIFACT_OWNERSHIP"] = artifact.ownership
+            extra_env["ARTIFACT_REPO_URL"] = artifact.repo_url
             extra_env["ARTIFACT_DIR_NAME_FILE"] = "/tmp/experiment_dir"
             self.log.info(
                 f"User {self.user.name} importing from "
