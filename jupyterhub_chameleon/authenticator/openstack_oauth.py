@@ -181,7 +181,8 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
 
         user_headers = self._get_default_headers()
         user_headers["Authorization"] = "Bearer {}".format(access_token)
-        req = HTTPRequest(self.userdata_url, method="GET", headers=user_headers)
+        verify = os.environ.get("OAUTH2_TLS_VERIFY") != "0" # Used for local dev self-signed certs
+        req = HTTPRequest(self.userdata_url, method="GET", headers=user_headers, validate_cert=verify)
         try:
             http_client = AsyncHTTPClient()
             user_resp = await http_client.fetch(req)
