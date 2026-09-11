@@ -160,7 +160,7 @@ class AccessTokenMixin:
     async def _fetch_new_token(self, refresh_token):
         client_id = os.environ["OAUTH_CLIENT_ID"]
         client_secret = os.environ["OAUTH_CLIENT_SECRET"]
-        token_url = os.environ["OAUTH2_TOKEN_URL"]
+        token_url = self.authenticator.token_url
 
         params = dict(
             grant_type="refresh_token",
@@ -170,7 +170,7 @@ class AccessTokenMixin:
         )
         body = urlencode(params)
         req = HTTPRequest(token_url, "POST", body=body)
-        self.log.debug(f'url={token_url} body={body.replace(client_secret, "***")}')
+        self.log.debug(f"url={token_url} grant_type=refresh_token client_id={client_id}")
 
         client = AsyncHTTPClient()
         resp = await client.fetch(req)
