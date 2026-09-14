@@ -10,7 +10,7 @@ from jupyterhub.handlers.login import LogoutHandler
 from jupyterhub.utils import url_path_join
 from oauthenticator.generic import GenericOAuthenticator
 from tornado.httpclient import HTTPClientError, HTTPRequest, AsyncHTTPClient
-from traitlets import default, Bool, Int, Unicode
+from traitlets import default, Bool, Unicode
 
 from .config import OPENSTACK_RC_AUTH_STATE_KEY
 
@@ -68,15 +68,6 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
     # The Keystone authenticator will fail if the user's unscoped token has
     # expired, forcing them to log in, which is the right thing.
     refresh_pre_spawn = Bool(True)
-
-    # Automatically check the auth state this often.
-    # This isn't very useful for us, since we can't really do anything if
-    # the token has expired realistically (can we?), so we increase the poll
-    # interval just to reduce things the authenticator has to do.
-    # TODO(jason): we could potentially use the auth refresh mechanism to
-    # generate a refresh auth token from Keycloak (and then exchange it for
-    # a new Keystone token.)
-    auth_refresh_age = Int(60 * 60)
 
     @default("scope")
     def _scope_default(self):
@@ -234,6 +225,22 @@ class OpenstackOAuthenticator(GenericOAuthenticator):
             "admin": is_admin,
             "auth_state": auth_state,
         }
+
+    async def refresh_user(self, user, handler=None):
+        """Report whether the user's stored tokens can still be renewed.
+
+        Returns False to require a new login.
+        """
+        auth_state = await user.get_auth_state()
+        if not auth_state or not auth_state.get("refresh_token"):
+            return False
+
+        refresh_expires_at = auth_state.get("refresh_expires_at")
+        if refresh_expires_at is not None and refresh_expires_at < time.time():
+            self.log.info(f"Refresh token for {user.name} has expired")
+            return False
+
+        return True
 
     async def pre_spawn_start(self, user, spawner):
         """Fill in OpenRC environment variables from user auth state."""
